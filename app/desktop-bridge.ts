@@ -1,0 +1,21 @@
+export type NativeProfile = {
+  base_url: string;
+  model: string;
+  qps: number;
+  key_available: boolean;
+  remembered: boolean;
+};
+
+declare global {
+  interface Window {
+    webkit?: { messageHandlers?: { studioNative?: {
+      postMessage(message: Record<string, unknown>): Promise<NativeProfile>;
+    } } };
+  }
+}
+
+export function nativeProfile(action: "load" | "save" | "forget", profile?: Record<string, unknown>) {
+  const bridge = window.webkit?.messageHandlers?.studioNative;
+  if (!bridge) return Promise.reject(new Error("请从纸间 Mac App 打开此界面。"));
+  return bridge.postMessage({ action, profile });
+}

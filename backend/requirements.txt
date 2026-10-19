@@ -1,0 +1,9 @@
+# Validated with Python 3.11 in this workspace. Keep the PDF engine pair
+# aligned: their dynamic translator and table APIs are version-sensitive.
+pdf2zh-next==2.9.0
+babeldoc==0.6.2
+PyMuPDF==1.25.2
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+python-multipart==0.0.32
+httpx==0.28.1
