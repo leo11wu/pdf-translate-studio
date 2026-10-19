@@ -1,0 +1,6 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {"incremental": false, "target": "ES2022"},
+  "include": ["web/**/*.tsx", "vite.config.ts", "../app/page.tsx", "../app/desktop-bridge.ts"],
+  "exclude": ["../node_modules", "../build", "../dist"]
+}
