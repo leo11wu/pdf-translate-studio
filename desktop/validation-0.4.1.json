@@ -1,0 +1,17 @@
+{
+  "version": "0.4.1",
+  "regression_tests": 59,
+  "recovery_status": "completed",
+  "page_count": 15,
+  "additional_api_requests": 0,
+  "original_requests_preserved": 73,
+  "source_nul_glyphs": 2,
+  "mono_inherited_nul_glyphs": 2,
+  "dual_inherited_nul_glyphs": 4,
+  "nul_page": 5,
+  "same_embedded_font_binary": true,
+  "mono_and_dual_validation_passed": true,
+  "txt_utf8_without_nul": true,
+  "original_failure_record_backed_up": true,
+  "secret_and_document_content_included": false
+}

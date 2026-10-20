@@ -4,7 +4,7 @@
 
 一、下载与安装
 1. 下载软件：
-https://github.com/leo11wu/pdf-translate-studio/releases/download/v0.4.0/PaperStudio-0.4.0-macOS-arm64.zip
+https://github.com/leo11wu/pdf-translate-studio/releases/download/v0.4.1/PaperStudio-0.4.1-macOS-arm64.zip
 链接打不开时，请向组内维护者索取 ZIP 安装包。直接收到 ZIP 的同学不需要 GitHub 账号。
 2. 双击 ZIP 解压，把“纸间.app”拖入“应用程序”文件夹，再双击打开。
 3. 如果因“无法验证开发者”而被拦截：尝试打开后，进入“系统设置 → 隐私与安全性”，找到这款 App，点击“仍要打开”，再确认。只对组内提供、确认来源的这份 App 操作。
@@ -39,4 +39,6 @@ API 就是 App 使用的翻译服务。请先准备好：服务地址、自己�
 
 macOS 首次打开的官方说明：https://support.apple.com/zh-cn/102445
 
-版本：纸间 0.4.0。升级会保留原稿、译文和任务历史，并自动迁移旧版最后保存的一套 API；旧版更早被覆盖的配置需重新添加。
+版本：纸间 0.4.1。升级会保留原稿、译文和任务历史，并自动迁移旧版最后保存的一套 API；旧版更早被覆盖的配置需重新添加。
+
+0.4.1 补丁：修复公式字体引起的 NUL 误报。升级打开后，符合条件的失败任务会从已有结果恢复，无需重译或再次消耗 API；可在“输出与历史”取回。

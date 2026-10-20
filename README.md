@@ -6,9 +6,9 @@
 
 ## 下载 Mac App
 
-### [下载纸间 0.4.0（Apple 芯片 Mac，约 126 MB）](https://github.com/leo11wu/pdf-translate-studio/releases/download/v0.4.0/PaperStudio-0.4.0-macOS-arm64.zip)
+### [下载纸间 0.4.1（Apple 芯片 Mac，约 126 MB）](https://github.com/leo11wu/pdf-translate-studio/releases/download/v0.4.1/PaperStudio-0.4.1-macOS-arm64.zip)
 
-适用于 M1 / M2 / M3 / M4 等 Apple 芯片 Mac，系统要求 macOS 14 或以上。下载文件名为 `PaperStudio-0.4.0-macOS-arm64.zip` 的应用包；其余附件供开发维护使用。
+适用于 M1 / M2 / M3 / M4 等 Apple 芯片 Mac，系统要求 macOS 14 或以上。下载文件名为 `PaperStudio-0.4.1-macOS-arm64.zip` 的应用包；其余附件供开发维护使用。
 
 仓库目前是私有的。打不开下载链接时，可请组内维护者直接提供这个 ZIP；App 运行本身不需要 GitHub 账号。
 
@@ -87,7 +87,7 @@ npm ci
 npm run app:build
 ```
 
-全新构建机应先用 Python 3.11 创建 `.venv`。构建脚本会运行后端回归、桌面 TypeScript 和 ESLint 检查，生成 App、ZIP、对应源码、第三方授权及 SHA-256。产物写入 `release/`，0.4.0 App 工作副本在 `build/package-0.4.0-macos-arm64/纸间.app`。
+全新构建机应先用 Python 3.11 创建 `.venv`。构建脚本会运行后端回归、桌面 TypeScript 和 ESLint 检查，生成 App、ZIP、对应源码、第三方授权及 SHA-256。产物写入 `release/`，0.4.1 App 工作副本在 `build/package-0.4.1-macos-arm64/纸间.app`。
 
 当前采用本地临时签名，未经过 Apple 公证。首次打开的操作与完整使用说明见 `desktop/使用说明.txt`。可用以下命令对冻结后的引擎做隔离验证；模拟供应商仅验证协议与处理链，不能据此推断真实模型译文质量：
 
@@ -202,3 +202,7 @@ python3 -m venv .venv
 
 
 </details>
+
+### 0.4.1 修复
+
+部分 TeX 数学字体的原始括号在文本提取时表现为 NUL。现在核对同页源字形的嵌入字体、实际 glyph 和位置，仅放行可追溯到原稿的字形。升级启动时重新校验仅因旧 NUL 规则失败且仍有完整结果的任务，恢复 PDF / TXT，不重新请求 API。新出现或无法核对的 NUL，以及提示词污染，仍阻止交付。

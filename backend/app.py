@@ -1120,7 +1120,7 @@ def normalize_text_for_validation(text: str) -> str:
 
     normalized = unicodedata.normalize("NFKC", text)
     # Keep line/word boundaries when PDF producers encode them as control
-    # separators; NUL remains detectable separately as binary corruption.
+    # separators; NUL glyphs are checked separately against the source PDF.
     normalized = "".join(
         " " if unicodedata.category(character).startswith("C") else character
         for character in normalized
@@ -1171,7 +1171,75 @@ def ensure_job_output(job: Job, output_path: Path) -> Path:
     return resolved
 
 
-def validate_output_pdf(source_pdf: Path, output_pdf: Path) -> None:
+def _nul_glyphs(page: Any) -> list[dict[str, Any]]:
+    """Identify extracted NULs by embedded font, actual glyph and position.
+
+    Some TeX Type1 fonts draw brackets correctly but expose U+0000 through
+    MuPDF's text extractor. Text alone cannot distinguish these from damage.
+    An ambiguous / unembedded font or missing drawing trace stays unverified.
+    """
+    nulls = [
+        (span, character)
+        for block in page.get_text("rawdict")["blocks"] if "lines" in block
+        for line in block["lines"] for span in line["spans"]
+        for character in span["chars"] if character["c"] == "\x00"
+    ]
+    if not nulls:
+        return []
+    font_name = lambda name: re.sub(r"[-\s]", "", re.sub(r"^[A-Z]{6}\+", "", name))
+    fonts: dict[str, set[str]] = {}
+    for font in page.get_fonts(full=True):
+        content = page.parent.extract_font(font[0])[3] if font[0] else b""
+        if content:
+            fonts.setdefault(font_name(font[3]), set()).add(hashlib.sha256(content).hexdigest())
+    traces = page.get_texttrace()
+    result = []
+    for span, character in nulls:
+        name = font_name(span["font"])
+        origin = character["origin"]
+        matches = {
+            char[1] for trace in traces
+            if font_name(trace["font"]) == name and trace.get("type") in (0, 1, 2)
+            and abs(trace["size"] - span["size"]) < 0.05
+            for char in trace["chars"]
+            if abs(char[2][0] - origin[0]) < 0.05 and abs(char[2][1] - origin[1]) < 0.05
+        }
+        digests = fonts.get(name, set())
+        verified = len(digests) == 1 and len(matches) == 1 and next(iter(matches)) > 0
+        result.append({"font": next(iter(digests)) if verified else None,
+                       "glyph": next(iter(matches)) if verified else None,
+                       "origin": origin, "size": span["size"]})
+    return result
+
+
+def _inherited_nul_glyphs(source_page: Any, output_page: Any) -> int:
+    """Allow only unchanged source glyphs, once per mono / dual panel."""
+    originals = _nul_glyphs(source_page)
+    generated = _nul_glyphs(output_page)
+    sw, sh = source_page.rect.width, source_page.rect.height
+    ow, oh = output_page.rect.width, output_page.rect.height
+    offsets = [(0.0, 0.0)]
+    if abs(ow - 2 * sw) < 0.1 and abs(oh - sh) < 0.1:
+        offsets.append((sw, 0.0))
+    elif abs(oh - 2 * sh) < 0.1 and abs(ow - sw) < 0.1:
+        offsets.append((0.0, sh))
+    elif abs(ow - sw) >= 0.1 or abs(oh - sh) >= 0.1:
+        offsets = []
+    remaining = [(glyph, dx, dy) for dx, dy in offsets for glyph in originals if glyph["font"]]
+    for glyph in generated:
+        matched = next((index for index, (original, dx, dy) in enumerate(remaining)
+                        if glyph["font"] and glyph["font"] == original["font"]
+                        and glyph["glyph"] == original["glyph"]
+                        and abs(glyph["size"] - original["size"]) < 0.05
+                        and abs(glyph["origin"][0] - original["origin"][0] - dx) < 0.05
+                        and abs(glyph["origin"][1] - original["origin"][1] - dy) < 0.05), None)
+        if matched is None:
+            raise ValueError("输出 PDF 含无法与原稿字形核对的 NUL 字符，已阻止交付")
+        remaining.pop(matched)
+    return len(generated)
+
+
+def validate_output_pdf(source_pdf: Path, output_pdf: Path) -> dict[str, Any]:
     """Reject incomplete or prompt-contaminated PDFs before exposing downloads."""
 
     if fitz is None:
@@ -1188,16 +1256,18 @@ def validate_output_pdf(source_pdf: Path, output_pdf: Path) -> None:
         marker_hits: set[str] = set()
         dense_marker_hits: list[set[str]] = []
         page_marker_counts: list[int] = []
-        has_nul = False
+        inherited_nuls = 0
+        nul_pages: list[int] = []
         for page_index in range(output.page_count):
-            text = output[page_index].get_text("text")[:200_000]
+            full_text = output[page_index].get_text("text")
+            text = full_text[:200_000]
             page_hits = prompt_leak_hits(text)
             marker_hits.update(page_hits)
             page_marker_counts.append(len(page_hits))
             dense_marker_hits.extend(prompt_leak_windows(text))
-            has_nul = has_nul or "\x00" in text
-            if max(page_marker_counts, default=0) >= 3 and has_nul:
-                break
+            if "\x00" in full_text:
+                inherited_nuls += _inherited_nul_glyphs(source[page_index], output[page_index])
+                nul_pages.append(page_index + 1)
     # Three or more signatures in one short region is characteristic of the
     # engine's instruction block. A heading/JSON pair is also highly specific;
     # an isolated phrase in a paper about prompting is not enough.
@@ -1217,11 +1287,7 @@ def validate_output_pdf(source_pdf: Path, output_pdf: Path) -> None:
     ) or sum(1 for count in page_marker_counts if count >= 2) >= 2
     if dense_leak or heading_pair or repeated_page_leak:
         raise ValueError("检测到翻译指令疑似被写入 PDF，已阻止交付")
-    # Some PDF fonts legitimately expose U+0001/U+0003 glyph markers through
-    # text extraction.  NUL is the one control character that cannot be a
-    # useful text payload and is therefore treated as corruption.
-    if has_nul:
-        raise ValueError("输出 PDF 文本包含 NUL 字符，已阻止交付")
+    return {"inherited_nul_glyphs": inherited_nuls, "nul_pages": nul_pages}
 
 
 def copy_upload(source: Any, destination: Path) -> None:
@@ -1271,6 +1337,7 @@ async def cleanup_loop() -> None:
 @app.on_event("startup")
 async def start_cleanup() -> None:
     restore_history()
+    await recover_nul_failed_jobs()
     cleanup_expired_jobs()
     app.state.cleanup_task = asyncio.create_task(cleanup_loop())
 
@@ -1551,7 +1618,12 @@ async def complete_translation(job: Job, input_path: Path) -> None:
             job.runtime_stats = json.loads((job.directory / "runtime-statistics.json").read_text())
         except (OSError, ValueError):
             pass
-    validate_output_pdf(input_path, job.output_path)
+    validation = validate_output_pdf(input_path, job.output_path)
+    if validation["inherited_nul_glyphs"]:
+        pages = "、".join(map(str, validation["nul_pages"]))
+        warning = f"原稿第 {pages} 页有公式字体无法完整映射为 Unicode；PDF 已核对并保留原字形，TXT 的公式符号请对照原稿。"
+        if warning not in job.warnings:
+            job.warnings.append(warning)
     job.output_hashes["mono"] = await asyncio.to_thread(file_sha256, job.output_path)
     if job.dual_output_path:
         job.output_hashes["dual"] = await asyncio.to_thread(file_sha256, job.dual_output_path)
@@ -1565,6 +1637,51 @@ async def complete_translation(job: Job, input_path: Path) -> None:
     job.stage = "复用已验证结果，已完成" if job.cache_hit else "译制完成，可保存"
     job.progress, job.finished = 100.0, True
     await publish(job, {"type": "completed", **public_job(job)})
+
+
+async def recover_nul_failed_jobs() -> None:
+    """Recheck only 0.4's false-positive failures; never rerun translation."""
+    for job in list(JOBS.values()):
+        if (job.status != "failed"
+                or job.error_message != "输出 PDF 文本包含 NUL 字符，已阻止交付"):
+            continue
+        previous = job.__dict__.copy()
+        try:
+            source = job.directory / "source.pdf"
+            monos = list((job.directory / "result").glob("*.mono.pdf"))
+            duals = list((job.directory / "result").glob("*.dual.pdf"))
+            if len(monos) != 1 or (job.dual_requested and len(duals) != 1):
+                continue
+            mono = ensure_job_output(job, monos[0])
+            dual = ensure_job_output(job, duals[0]) if job.dual_requested else None
+            # Both outputs must pass before any completed status is exposed.
+            validate_output_pdf(source, mono)
+            if dual:
+                validate_output_pdf(source, dual)
+            backup = job.directory / "record.before-nul-recovery.json"
+            if not backup.exists():
+                shutil.copy2(job.directory / "record.json", backup)
+                _chmod_private(backup, JOB_FILE_MODE)
+            job.warnings = list(job.warnings)
+            job.output_hashes = dict(job.output_hashes)
+            job.link_stats = dict(job.link_stats)
+            job.text_stats = dict(job.text_stats)
+            job.output_path, job.dual_output_path = mono, dual
+            job.error_message = ""
+            if job.export_texts:
+                job.source_text_path = job.directory / "source.txt"
+                job.text_stats["source"] = await asyncio.to_thread(extract_text, source, job.source_text_path)
+            for key, label, path, restore in [("mono", "纯译文版", mono, restore_links),
+                                               ("dual", "对照版", dual, restore_links_dual)]:
+                if path:
+                    await restore_links_best_effort(job, key=key, label=label, source_pdf=source,
+                                                    output_pdf=path, restore=restore)
+            job.warnings.append("已重新校验并恢复上次因 NUL 字体映射误拦截的结果；没有再次调用翻译 API。")
+            await complete_translation(job, source)
+        except Exception:  # Keep an unverified / incomplete old result blocked.
+            job.__dict__.clear()
+            job.__dict__.update(previous)
+            persist_job(job)
 
 
 async def run_extraction(job: Job) -> None:
