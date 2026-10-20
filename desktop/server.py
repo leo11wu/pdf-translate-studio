@@ -1,17 +1,24 @@
 """Frozen service entry point; freeze_support must precede heavy engine imports."""
 import multiprocessing
+import sys
+from pathlib import Path
+
+if not getattr(sys, "frozen", False):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
 if __name__ == "__main__":
+    # freeze_support may dispatch any upstream helper process immediately,
+    # including PDF save/cleanup workers. Set resources before that dispatch.
+    from engine_bootstrap import configure_engine_cache
+    configure_engine_cache()
     multiprocessing.freeze_support()
 
 import json
 import os
 import signal
 import socket
-import sys
 import threading
 import time
-from pathlib import Path
 
 
 def main():

@@ -16,7 +16,7 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.3.0"
+VERSION = "0.4.0"
 RELEASE = ROOT / "release"
 BUILD = ROOT / "build"
 
@@ -27,13 +27,13 @@ def run(*args, **kwargs):
 
 
 def source_files():
-    names = ["README.md", "package.json", "package-lock.json", "tsconfig.json", "postcss.config.mjs",
+    names = ["README.md", "OPTIMIZATION_PLAN.md", "启动译制台.command", "组内简明使用说明.txt", "drizzle.config.ts", "package.json", "package-lock.json", "tsconfig.json", "postcss.config.mjs",
              "eslint.config.mjs", "vite.config.ts", "next.config.ts", "next-env.d.ts", ".gitignore"]
-    for folder in ("app", "desktop", "scripts", "tests", "public"):
+    for folder in ("app", "desktop", "scripts", "tests", "public", "worker", "db", "drizzle"):
         for path in (ROOT / folder).rglob("*"):
             if path.is_file() and not any(part.startswith(".") or part == "__pycache__" for part in path.relative_to(ROOT).parts):
                 names.append(str(path.relative_to(ROOT)))
-    names += ["backend/app.py", "backend/desktop_support.py", "backend/library.py", "backend/requirements.txt"]
+    names += ["backend/app.py", "backend/desktop_support.py", "backend/library.py", "backend/engine_bootstrap.py", "backend/request_runtime.py", "backend/translation_runtime.py", "backend/requirements.txt"]
     return sorted(set(names))
 
 
@@ -85,7 +85,7 @@ def main():
     native = BUILD / "PaperStudio"
     run("xcrun", "swiftc", "-O", "-target", "arm64-apple-macosx14.0", "-module-cache-path", 
         ROOT / ".runtime/swift-cache", "-framework", "AppKit", "-framework", "WebKit", "-framework", "Security",
-        "-framework", "UniformTypeIdentifiers", "desktop/Studio.swift", "-o", native)
+        "-framework", "UniformTypeIdentifiers", "desktop/Studio.swift", "desktop/ProviderStore.swift", "desktop/ValidationDriver.swift", "-o", native)
     app = BUILD / f"package-{VERSION}-macos-arm64/纸间.app"
     if app.exists():
         shutil.rmtree(app)
@@ -100,7 +100,7 @@ def main():
     shutil.copy2(ROOT / "desktop/使用说明.txt", resources / "使用说明.txt")
     info = {"CFBundleExecutable": "PaperStudio", "CFBundleIdentifier": "org.paperstudio.app",
             "CFBundleName": "纸间", "CFBundleDisplayName": "纸间 · PDF 译制台", "CFBundlePackageType": "APPL",
-            "CFBundleShortVersionString": VERSION, "CFBundleVersion": "3", "LSMinimumSystemVersion": "14.0",
+            "CFBundleShortVersionString": VERSION, "CFBundleVersion": "4", "LSMinimumSystemVersion": "14.0",
             "NSHighResolutionCapable": True, "NSPrincipalClass": "NSApplication", "CFBundleIconFile": "Studio.icns",
             "NSAppTransportSecurity": {"NSAllowsLocalNetworking": True},
             "NSHumanReadableCopyright": "纸间 · PDF 译制台；第三方授权见随附说明。"}

@@ -70,7 +70,10 @@ def provider_url(value: str, normalize) -> str:
     return normalized
 
 
-async def fetch_models(base_url: str, key: str) -> list[str]:
+from request_runtime import normalize_options
+
+
+async def fetch_models(base_url: str, key: str, catalog: dict | None = None) -> list[str]:
     """Use the provider's standard /models endpoint; never forward keys on redirects."""
     try:
         async with httpx.AsyncClient(timeout=25, follow_redirects=False) as client:
@@ -105,6 +108,14 @@ async def fetch_models(base_url: str, key: str) -> list[str]:
         name = entry.get("id", entry.get("name")) if isinstance(entry, dict) else entry
         if isinstance(name, str) and name.strip() and len(name) <= 512:
             names.add(name.strip())
+            if catalog is not None and isinstance(entry, dict):
+                details = {field: entry[field] for field in ("context_window", "max_output_tokens")
+                           if isinstance(entry.get(field), int) and entry[field] > 0}
+                effort = entry.get("effort", {})
+                if isinstance(effort, dict) and isinstance(effort.get("supported_levels"), list):
+                    details["effort"] = {"supported_levels": [x for x in effort["supported_levels"]
+                        if x in {"none", "minimal", "low", "medium", "high", "xhigh", "max"}]}
+                catalog[name.strip()] = details
     if not names:
         raise HTTPException(422, "此账号没有返回可用模型，也可以手动填写模型名称。")
     return sorted(names, key=str.casefold)
@@ -229,17 +240,23 @@ def install_desktop_routes(worker, web_root: Path, token: str):
     app = worker.app
     app.add_middleware(SessionGuard, token=token)
     app.state.desktop_profile = {}
+    app.state.model_catalog = {}
     app.state.assets = AssetManager(worker.ENGINE_CACHE_ROOT)
 
     @app.post("/api/desktop/profile")
     async def set_profile(request: Request):
+        if any(job.status in {"queued", "running", "cancelling"} for job in getattr(worker, "JOBS", {}).values()):
+            raise HTTPException(409, "请等待当前任务结束或取消后，再切换 API 配置。")
         profile = await request.json()
         base = provider_url(str(profile.get("base_url", "")), worker.normalize_api_base_url)
         app.state.desktop_profile = {
             "base_url": base, "api_key": str(profile.get("api_key", "")).strip(),
             "model": str(profile.get("model", "")).strip(),
             "qps": str(max(1, min(int(profile.get("qps", 8)), worker.MAX_QPS))),
+            "profile_id": str(profile.get("id", "session")),
+            "runtime": normalize_options(profile.get("runtime", {})),
         }
+        app.state.model_catalog = {}
         return {"ok": True}
 
     @app.post("/api/provider/models")
@@ -252,7 +269,11 @@ def install_desktop_routes(worker, web_root: Path, token: str):
             key = profile.get("api_key", "")
         if not key:
             raise HTTPException(422, "请先填写此地址的 API 密钥。")
-        return {"models": await fetch_models(base, key)}
+        catalog = {}
+        names = await fetch_models(base, key, catalog=catalog)
+        if app.state.desktop_profile is profile and base == profile.get("base_url"):
+            app.state.model_catalog = catalog
+        return {"models": names, "capabilities": catalog}
 
     @app.get("/api/desktop/assets")
     async def asset_status():

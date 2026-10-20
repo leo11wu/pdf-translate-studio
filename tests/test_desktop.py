@@ -93,6 +93,7 @@ class SessionTests(unittest.IsolatedAsyncioTestCase):
             (root / "assets").mkdir()
             (root / "index.html").write_text("test")
             test_worker = type("Worker", (), {"app": FastAPI(), "ENGINE_CACHE_ROOT": root / "cache", "MAX_QPS": 64,
+                "JOBS": {},
                 "normalize_api_base_url": staticmethod(worker.normalize_api_base_url)})
             install_desktop_routes(test_worker, root, "session-test-token")
             client = httpx.AsyncClient(transport=httpx.ASGITransport(app=test_worker.app), base_url="http://127.0.0.1:45678",
@@ -102,10 +103,15 @@ class SessionTests(unittest.IsolatedAsyncioTestCase):
                 with patch("desktop_support.fetch_models", return_value=["example"]) as fetch:
                     response = await client.post("/api/provider/models", json={"base_url": "https://one.test", "api_key": ""})
                     self.assertEqual(response.status_code, 200)
-                    fetch.assert_awaited_once_with("https://one.test/v1", "saved-secret")
+                    fetch.assert_awaited_once_with("https://one.test/v1", "saved-secret", catalog={})
                     response = await client.post("/api/provider/models", json={"base_url": "https://two.test", "api_key": ""})
                     self.assertEqual(response.status_code, 422)
                     self.assertEqual(fetch.await_count, 1)
+                from types import SimpleNamespace
+                test_worker.JOBS['active'] = SimpleNamespace(status='running')
+                blocked = await client.post('/api/desktop/profile', json={'base_url':'https://two.test','api_key':'wrong-host-secret'})
+                self.assertEqual(blocked.status_code, 409)
+                self.assertEqual(test_worker.app.state.desktop_profile['base_url'], 'https://one.test/v1')
 
 
 class AssetTests(unittest.IsolatedAsyncioTestCase):

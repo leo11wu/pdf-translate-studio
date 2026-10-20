@@ -1,7 +1,13 @@
 import { sites } from "@openai/sites-vite-plugin";
 import vinext from "vinext";
 import { defineConfig } from "vite";
-import hostingConfig from "./.openai/hosting.json";
+import { readFileSync } from "node:fs";
+
+// A source download does not contain the original author's local hosting file.
+const hostingConfig = (() => {
+  try { return JSON.parse(readFileSync(new URL("./.openai/hosting.json", import.meta.url), "utf8")) as { d1?: boolean; r2?: boolean }; }
+  catch { return { d1: false, r2: false }; }
+})();
 
 const SITE_CREATOR_PLACEHOLDER_DATABASE_ID =
   "00000000-0000-4000-8000-000000000000";

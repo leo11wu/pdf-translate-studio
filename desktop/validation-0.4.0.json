@@ -1,0 +1,466 @@
+{
+  "version": "0.4.0",
+  "date": "2026-10-20",
+  "platform": "macOS arm64",
+  "engines": {
+    "pdf2zh-next": "2.9.0",
+    "babeldoc": "0.6.2"
+  },
+  "automated": {
+    "python_tests": 52,
+    "typescript": true,
+    "eslint": true,
+    "web_render_tests": 2
+  },
+  "frozen_cache_isolation": {
+    "checks": "frozen-multiprocessing-sse-mono-dual-navigation",
+    "events": 50,
+    "provider_requests": 1,
+    "outputs": {
+      "download": {
+        "bytes": 16467,
+        "pages": 1,
+        "links": 1
+      },
+      "download-dual": {
+        "bytes": 17988,
+        "pages": 1,
+        "links": 2
+      },
+      "source.txt": {
+        "bytes": 1146,
+        "utf8": true
+      },
+      "translated.txt": {
+        "bytes": 542,
+        "utf8": true
+      }
+    },
+    "verified_document_reuse_without_api_calls": true,
+    "txt_exports": true,
+    "provider": "local deterministic mock",
+    "legacy_cache_read_denied": true,
+    "external_network_denied": true,
+    "restart_restores_history_and_downloads": true,
+    "job_files_do_not_contain_api_key": true
+  },
+  "fixed_latency": {
+    "scope": "native four-page intermediate representation, 24 paragraphs/page, 100 source tokens/paragraph; 1.2s response latency; two repetitions",
+    "mean_seconds": {
+      "original": 10.4545,
+      "batch_only": 3.19,
+      "full": 5.425000000000001
+    },
+    "request_reduction": 0.75,
+    "time_reduction": 0.48108470036826234,
+    "acceptance_passed": true
+  },
+  "real_api": {
+    "provider": "www.sssai.xin",
+    "model": "deepseek-v4.1-flash",
+    "sample_original_pages": [
+      1,
+      4,
+      7,
+      12
+    ],
+    "repetitions": 2,
+    "runs": [
+      {
+        "mode": "original-r1",
+        "pages": 4,
+        "elapsed_seconds": 63.26,
+        "translation_seconds": 38.548,
+        "cache_hit": false,
+        "requests": 20,
+        "successful_requests": 20,
+        "peak_in_flight": 16,
+        "rate_limits": 0,
+        "protocol_retries": 0,
+        "request_seconds": 282.447,
+        "provider_usage": {
+          "completion_tokens": 55573,
+          "prompt_tokens": 15312,
+          "reasoning_tokens": 51535,
+          "total_tokens": 70885
+        },
+        "reasoning_confirmed": false
+      },
+      {
+        "mode": "original-r2",
+        "pages": 4,
+        "elapsed_seconds": 61.63,
+        "translation_seconds": 36.695,
+        "cache_hit": false,
+        "requests": 21,
+        "successful_requests": 21,
+        "peak_in_flight": 16,
+        "rate_limits": 0,
+        "protocol_retries": 0,
+        "request_seconds": 314.192,
+        "provider_usage": {
+          "completion_tokens": 56284,
+          "prompt_tokens": 15707,
+          "reasoning_tokens": 52148,
+          "total_tokens": 71991
+        },
+        "reasoning_confirmed": false
+      },
+      {
+        "mode": "batch-only-r1",
+        "pages": 4,
+        "elapsed_seconds": 73.44,
+        "translation_seconds": 47.301,
+        "cache_hit": false,
+        "requests": 18,
+        "successful_requests": 18,
+        "peak_in_flight": 12,
+        "rate_limits": 0,
+        "protocol_retries": 0,
+        "request_seconds": 278.837,
+        "provider_usage": {
+          "completion_tokens": 55208,
+          "prompt_tokens": 13634,
+          "reasoning_tokens": 51201,
+          "total_tokens": 68842
+        },
+        "reasoning_confirmed": false
+      },
+      {
+        "mode": "batch-only-r2",
+        "pages": 4,
+        "elapsed_seconds": 91.32,
+        "translation_seconds": 67.55,
+        "cache_hit": false,
+        "requests": 17,
+        "successful_requests": 17,
+        "peak_in_flight": 12,
+        "rate_limits": 0,
+        "protocol_retries": 0,
+        "request_seconds": 325.536,
+        "provider_usage": {
+          "completion_tokens": 61153,
+          "prompt_tokens": 13215,
+          "reasoning_tokens": 56953,
+          "total_tokens": 74368
+        },
+        "reasoning_confirmed": false
+      },
+      {
+        "mode": "optimized-r1",
+        "pages": 4,
+        "elapsed_seconds": 32.59,
+        "translation_seconds": 16.461,
+        "cache_hit": false,
+        "requests": 12,
+        "successful_requests": 12,
+        "peak_in_flight": 4,
+        "rate_limits": 0,
+        "protocol_retries": 0,
+        "request_seconds": 45.669,
+        "provider_usage": {
+          "completion_tokens": 3549,
+          "prompt_tokens": 10808,
+          "total_tokens": 14357
+        },
+        "reasoning_confirmed": false
+      },
+      {
+        "mode": "optimized-r2",
+        "pages": 4,
+        "elapsed_seconds": 34.75,
+        "translation_seconds": 19.684,
+        "cache_hit": false,
+        "requests": 14,
+        "successful_requests": 14,
+        "peak_in_flight": 4,
+        "rate_limits": 0,
+        "protocol_retries": 2,
+        "request_seconds": 61.423,
+        "provider_usage": {
+          "completion_tokens": 3791,
+          "prompt_tokens": 12184,
+          "total_tokens": 15975
+        },
+        "reasoning_confirmed": false
+      },
+      {
+        "mode": "full-17-pages",
+        "pages": 17,
+        "elapsed_seconds": 68.95,
+        "translation_seconds": 39.258,
+        "cache_hit": false,
+        "requests": 59,
+        "successful_requests": 59,
+        "peak_in_flight": 10,
+        "rate_limits": 0,
+        "protocol_retries": 1,
+        "request_seconds": 218.151,
+        "provider_usage": {
+          "completion_tokens": 14708,
+          "prompt_tokens": 50028,
+          "total_tokens": 64736
+        },
+        "reasoning_confirmed": false
+      }
+    ],
+    "mean_seconds": {
+      "original": 62.445,
+      "batch_only": 82.38,
+      "optimized": 33.67
+    },
+    "optimized_time_reduction": 0.46080550884778604,
+    "optimized_request_reduction": 0.36585365853658536,
+    "batch_only_time_increase": 0.31924093202017767,
+    "rejected_prototype": {
+      "seconds": 98.86,
+      "reasoning_tokens": 50141,
+      "reason": "Single thinking control did not disable thinking at gateway; corrected and repeated."
+    },
+    "reasoning_confirmation": "requested none/disabled, not confirmed by gateway; missing reasoning usage not treated as zero",
+    "other_provider_incomplete": "Official DeepSeek first corrected run 31.39s, later HTTP402; excluded from final comparison",
+    "gpt_comparison": "removed per user instruction"
+  },
+  "quality": {
+    "source_sha256": "6377b735e39d0693854e08d594a188f49e167c9df9b742f840f810819cfef7f9",
+    "structure": {
+      "source": {
+        "pages": 17,
+        "links": 62,
+        "images": 4,
+        "toc": 0,
+        "page_characters": [
+          2642,
+          3910,
+          3549,
+          4330,
+          3821,
+          2574,
+          4363,
+          3031,
+          3134,
+          2232,
+          1927,
+          3944,
+          3453,
+          3833,
+          4423,
+          2467,
+          119
+        ],
+        "prompt_leak": false
+      },
+      "mono": {
+        "pages": 17,
+        "links": 62,
+        "images": 4,
+        "toc": 0,
+        "page_characters": [
+          1110,
+          1375,
+          1523,
+          1487,
+          1168,
+          818,
+          1350,
+          1004,
+          1212,
+          1008,
+          894,
+          1314,
+          1041,
+          2395,
+          2621,
+          1589,
+          66
+        ],
+        "prompt_leak": false
+      },
+      "dual": {
+        "pages": 17,
+        "links": 124,
+        "images": 8,
+        "toc": 0,
+        "page_characters": [
+          3752,
+          5285,
+          5072,
+          5817,
+          4989,
+          3392,
+          5713,
+          4035,
+          4346,
+          3240,
+          2821,
+          5258,
+          4494,
+          6228,
+          7044,
+          4055,
+          185
+        ],
+        "prompt_leak": false
+      }
+    },
+    "numeric_review": [
+      {
+        "page": 1,
+        "source_count": 4,
+        "target_count": 4,
+        "missing": [
+          "10.1177",
+          "10.1177"
+        ],
+        "additional": [
+          "2024",
+          "101177.1177"
+        ]
+      },
+      {
+        "page": 2,
+        "source_count": 21,
+        "target_count": 21,
+        "missing": [],
+        "additional": []
+      },
+      {
+        "page": 3,
+        "source_count": 18,
+        "target_count": 17,
+        "missing": [
+          "1.25"
+        ],
+        "additional": []
+      },
+      {
+        "page": 4,
+        "source_count": 20,
+        "target_count": 20,
+        "missing": [],
+        "additional": []
+      },
+      {
+        "page": 5,
+        "source_count": 2,
+        "target_count": 1,
+        "missing": [
+          "1.1"
+        ],
+        "additional": []
+      },
+      {
+        "page": 6,
+        "source_count": 9,
+        "target_count": 9,
+        "missing": [],
+        "additional": []
+      },
+      {
+        "page": 7,
+        "source_count": 8,
+        "target_count": 8,
+        "missing": [],
+        "additional": []
+      },
+      {
+        "page": 8,
+        "source_count": 9,
+        "target_count": 9,
+        "missing": [],
+        "additional": []
+      },
+      {
+        "page": 9,
+        "source_count": 9,
+        "target_count": 9,
+        "missing": [],
+        "additional": []
+      },
+      {
+        "page": 10,
+        "source_count": 38,
+        "target_count": 38,
+        "missing": [],
+        "additional": []
+      },
+      {
+        "page": 11,
+        "source_count": 35,
+        "target_count": 35,
+        "missing": [],
+        "additional": []
+      },
+      {
+        "page": 12,
+        "source_count": 30,
+        "target_count": 30,
+        "missing": [],
+        "additional": []
+      },
+      {
+        "page": 13,
+        "source_count": 3,
+        "target_count": 3,
+        "missing": [],
+        "additional": []
+      },
+      {
+        "page": 14,
+        "source_count": 37,
+        "target_count": 37,
+        "missing": [],
+        "additional": []
+      },
+      {
+        "page": 15,
+        "source_count": 51,
+        "target_count": 49,
+        "missing": [
+          "10.10",
+          "09296174.2020.1754611",
+          "10.1007"
+        ],
+        "additional": [
+          "2020"
+        ]
+      },
+      {
+        "page": 16,
+        "source_count": 15,
+        "target_count": 15,
+        "missing": [],
+        "additional": []
+      },
+      {
+        "page": 17,
+        "source_count": 0,
+        "target_count": 0,
+        "missing": [],
+        "additional": []
+      }
+    ],
+    "mono_link_targets_match": true,
+    "dual_link_targets_doubled": true,
+    "mono_page_sizes_match": true,
+    "txt": {
+      "source": {
+        "utf8": true,
+        "page_markers": 17,
+        "forbidden_controls": false
+      },
+      "translated": {
+        "utf8": true,
+        "page_markers": 17,
+        "forbidden_controls": false
+      }
+    }
+  },
+  "known_existing_limitations": [
+    "Publisher metadata and DOI layout",
+    "Decimal punctuation glyph in mixed formula/text",
+    "No exhaustive semantic or numerical equivalence guarantee"
+  ],
+  "native_save_as_txt_matches": true,
+  "secrets_or_document_text_included": false
+}

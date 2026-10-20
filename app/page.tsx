@@ -4,6 +4,8 @@ import { ChangeEvent, DragEvent, KeyboardEvent, useEffect, useRef, useState } fr
 import ProviderSettings from "./ProviderSettings";
 import AssetStatus from "./AssetStatus";
 import OutputLibrary from "./OutputLibrary";
+import RuntimeStatus from "./RuntimeStatus";
+import { defaultRuntime, type RuntimeOptions } from "./desktop-bridge";
 import { elapsed, type TranslationJob } from "./job-types";
 
 const workflow = [
@@ -79,6 +81,7 @@ export default function Home({ desktop = false }: { desktop?: boolean } = {}) {
   const [workerUrl, setWorkerUrl] = useState(() => desktop ? window.location.origin : "http://127.0.0.1:8789");
   const [partPages, setPartPages] = useState(50);
   const [qps, setQps] = useState(desktop ? 8 : 32);
+  const [runtime, setRuntime] = useState<RuntimeOptions>(defaultRuntime);
   const [tableText, setTableText] = useState(false);
   const [tableTextSupported, setTableTextSupported] = useState(false);
   const [ocrAssist, setOcrAssist] = useState(false);
@@ -178,6 +181,9 @@ export default function Home({ desktop = false }: { desktop?: boolean } = {}) {
       }
       if (event.type === "stage_summary") {
         next.total_parts = numberFrom(event.total_parts, next.total_parts);
+      }
+      if (event.type === "runtime" && event.runtime_stats && typeof event.runtime_stats === "object") {
+        next.runtime_stats = event.runtime_stats as TranslationJob["runtime_stats"];
       }
       if (event.type === "completed") {
         Object.assign(next, event);
@@ -282,6 +288,7 @@ export default function Home({ desktop = false }: { desktop?: boolean } = {}) {
         if (model.trim()) form.append("model", model.trim());
       }
       form.append("qps", String(qps));
+      for (const [key, value] of Object.entries(runtime)) form.append(key, String(value));
       form.append("part_pages", String(partPages));
       form.append("translate_table_text", String(tableText && tableTextSupported));
       form.append("ocr_assist", String(ocrAssist));
@@ -351,7 +358,7 @@ export default function Home({ desktop = false }: { desktop?: boolean } = {}) {
           </div>
           {desktop ? <ProviderSettings baseUrl={apiBaseUrl} model={model} apiKey={apiKey} qps={qps}
             keyAvailable={hasSessionKey} disabled={jobIsActive || isStarting} setBaseUrl={setApiBaseUrl}
-            setModel={setModel} setApiKey={setApiKey} setQps={setQps} setKeyAvailable={setHasSessionKey} /> : configLoaded ? (
+            setModel={setModel} setApiKey={setApiKey} setQps={setQps} setKeyAvailable={setHasSessionKey} runtime={runtime} setRuntime={setRuntime} /> : configLoaded ? (
             <div className="language-route" style={{gridTemplateColumns: "1fr", textAlign: "center"}}>
               <div><span>API 配置</span><strong>✓ 已从配置文件读取</strong><small>{configModel ? `模型: ${configModel}` : "已就绪"}</small></div>
             </div>
@@ -385,8 +392,11 @@ export default function Home({ desktop = false }: { desktop?: boolean } = {}) {
           {showAdvanced && (
             <div className="advanced-panel">
               {!desktop && <label className="field full-field"><span>本地译制服务地址</span><input disabled={jobIsActive} value={workerUrl} onChange={(event) => setWorkerUrl(event.target.value)} placeholder="http://127.0.0.1:8789" spellCheck="false" /></label>}
-              <label className="range-field"><span>请求速率 / 并发上限 <strong>{qps}</strong></span><input disabled={jobIsActive} type="range" min="1" max="64" step="1" value={qps} onChange={(event) => setQps(Number(event.target.value))} /><small>按模型端点的速率限制调节；过高可能触发限流。</small></label>
-              <div className="speed-presets" aria-label="并发预设">{[[4, "稳妥 4"], [8, "标准 8"], [16, "快速 16"]].map(([value, label]) => <button className={qps === value ? "save-config is-selected" : "save-config"} type="button" disabled={jobIsActive} key={value} onClick={() => setQps(Number(value))}>{label}</button>)}</div>
+              <label className="field full-field"><span>请求调度</span><select value={runtime.concurrency_mode} disabled={jobIsActive} onChange={(event) => setRuntime({ ...runtime, concurrency_mode: event.target.value as RuntimeOptions["concurrency_mode"], max_in_flight: Math.min(runtime.max_in_flight, event.target.value === "auto" ? 16 : 64) })}><option value="auto">自动调速（推荐）</option><option value="manual">手动限制</option></select></label>
+              <label className="range-field"><span>同时请求上限 <strong>{runtime.max_in_flight}</strong></span><input disabled={jobIsActive} type="range" min="1" max={runtime.concurrency_mode === "auto" ? "16" : "64"} value={runtime.max_in_flight} onChange={(event) => setRuntime({ ...runtime, max_in_flight: Number(event.target.value) })} /><small>自动模式从最多 4 个请求起步，逐步增加至最多 16 个；限流时自动降速，重试也计入上限。</small></label>
+              <label className="field full-field"><span>每秒最多发起请求数</span><input type="number" min="0.1" max="64" step="0.5" disabled={jobIsActive} value={runtime.request_rate} onChange={(event) => setRuntime({ ...runtime, request_rate: Number(event.target.value) })} /></label>
+              <label className="field full-field"><span>每批原文 token 预算</span><input type="number" min="128" max="8192" step="128" disabled={jobIsActive} value={runtime.batch_tokens} onChange={(event) => setRuntime({ ...runtime, batch_tokens: Number(event.target.value) })} /></label>
+              <label className="field full-field"><span>模型思考策略</span><select disabled={jobIsActive} value={runtime.reasoning_policy} onChange={(event) => setRuntime({ ...runtime, reasoning_policy: event.target.value as RuntimeOptions["reasoning_policy"] })}><option value="lowest">自动最低（支持时关闭思考）</option><option value="provider_default">服务商默认</option></select></label>
               <label className="remember-control"><input type="checkbox" checked={useCache} disabled={jobIsActive} onChange={(event) => setUseCache(event.target.checked)} />复用相同文件、接口、模型与设置的已验证结果</label>
                 <label className="range-field"><span>每部分最多页数 <strong>{partPages} 页</strong></span><input disabled={jobIsActive} type="range" min="50" max="150" step="10" value={partPages} onChange={(event) => setPartPages(Number(event.target.value))} /><small>超过 80 页时自动启用；完成后自动合并。</small></label>
               <div className="toggle-stack">
@@ -415,6 +425,7 @@ export default function Home({ desktop = false }: { desktop?: boolean } = {}) {
           <label className="remember-control export-texts"><input type="checkbox" checked={exportTexts} disabled={jobIsActive || isStarting} onChange={(event) => setExportTexts(event.target.checked)} />同时导出原文 TXT 和译文 TXT</label>
           <p className="provider-hint">TXT 从 PDF 文本层提取，保留分页和换行。扫描页可能无文字；用于研究前请核对读取顺序、连字符与公式。</p>
           {notice && <p className="notice" role="status">{notice}</p>}
+          {job && <RuntimeStatus job={job} />}
           {job && <div className="live-progress"><div><span>{job.stage}</span><strong>{Math.round(job.progress)}%</strong></div><progress aria-label="当前任务进度" value={job.progress} max={100} /></div>}
           {jobIsComplete && job.warnings?.map((warning) => <p className="notice" role="status" key={warning}>{warning}</p>)}
           <button type="button" className="primary-action" onClick={() => void startTranslation()} disabled={!ready || jobIsActive || isStarting}><span>{isStarting ? "正在创建任务…" : jobIsActive ? "处理进行中" : jobIsComplete ? "再次开始译制" : "开始译制"}</span><span aria-hidden="true">↗</span></button>
@@ -423,7 +434,7 @@ export default function Home({ desktop = false }: { desktop?: boolean } = {}) {
           {job && jobIsComplete && (
             <div className="download-row">
               <p className="result-summary">{job.filename} · {job.page_count} 页 · {elapsed(job.elapsed_seconds)}{job.cache_hit ? " · 结果复用" : ""}</p>
-              <p className="provider-hint">{job.kind === "extraction" ? "纯本地提取 · 未调用 API" : `${job.model || "旧版模型信息未知"} · 并发 ${job.qps}${job.options?.generate_dual ? " · 含对照版" : ""}${job.options?.ocr_assist ? " · 扫描件辅助" : ""}`}</p>
+              <p className="provider-hint">{job.kind === "extraction" ? "纯本地提取 · 未调用 API" : `${job.model || "旧版模型信息未知"} · ${job.options?.runtime ? `${job.options.runtime.concurrency_mode === "auto" ? "自动" : "手动"}并发，上限 ${job.options.runtime.max_in_flight}` : `并发 ${job.qps}`}${job.options?.generate_dual ? " · 含对照版" : ""}${job.options?.ocr_assist ? " · 扫描件辅助" : ""}`}</p>
               {job.artifacts?.map((artifact) => <a className="download-action" download={artifact.filename} key={artifact.kind} href={`${workerEndpoint()}${artifact.route}`}>{({ pdf: "中文译文 PDF", dual: "中英对照 PDF", source_txt: "原文 TXT", translated_txt: "译文 TXT" } as Record<string, string>)[artifact.kind] ?? artifact.kind} <span aria-hidden="true">另存 ↓</span></a>)}
               {job.stage_seconds && Object.keys(job.stage_seconds).length > 0 && <details className="timing-details"><summary>耗时明细</summary>{Object.entries(job.stage_seconds).map(([stage, seconds]) => <p key={stage}>{stage} <strong>{elapsed(seconds)}</strong></p>)}</details>}
             </div>

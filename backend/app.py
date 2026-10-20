@@ -9,6 +9,7 @@ is handled exclusively by the native macOS Keychain bridge.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import math
 import os
@@ -40,14 +41,9 @@ def configure_babeldoc_cache() -> None:
     """Point BabelDOC's import-time cache at a writable, local directory."""
 
     try:
-        import babeldoc.const as babeldoc_const
-
-        ENGINE_CACHE_ROOT.mkdir(parents=True, exist_ok=True, mode=0o700)
+        from engine_bootstrap import configure_engine_cache
+        configure_engine_cache()
         os.chmod(ENGINE_CACHE_ROOT, 0o700)
-        babeldoc_const.CACHE_FOLDER = ENGINE_CACHE_ROOT
-        babeldoc_const.TIKTOKEN_CACHE_FOLDER = ENGINE_CACHE_ROOT / "tiktoken"
-        babeldoc_const.TIKTOKEN_CACHE_FOLDER.mkdir(parents=True, exist_ok=True, mode=0o700)
-        os.environ["TIKTOKEN_CACHE_DIR"] = str(babeldoc_const.TIKTOKEN_CACHE_FOLDER)
     except Exception:  # noqa: BLE001 - cache redirection is an optional startup aid.
         # The normal user cache remains a fallback for installations where the
         # package cannot be imported early enough to redirect its constants.
@@ -94,6 +90,9 @@ try:
     )
     from pdf2zh_next.config.translate_engine_model import OpenAICompatibleSettings
     from pdf2zh_next.high_level import do_translate_async_stream
+    from translation_runtime import StudioSettings, install_runtime
+    from request_runtime import normalize_options, RequestRuntime, PROTOCOL_VERSION
+    install_runtime()
 
     ENGINE_IMPORT_ERROR: str | None = None
 except Exception as exc:  # noqa: BLE001 - health endpoint reports optional dependency failures.
@@ -108,7 +107,7 @@ JOB_TTL_SECONDS = 24 * 60 * 60
 DEFAULT_QPS = 32
 MAX_QPS = 64
 MAX_PART_PAGES = 500
-ALLOWED_REASONING_EFFORTS = {"minimal", "low", "medium", "high"}
+ALLOWED_REASONING_EFFORTS = {"none", "minimal", "low", "medium", "high", "xhigh", "max"}
 # BabelDOC 0.6.x accepts the legacy field but discards its table model.  Keep
 # this explicit until an upstream release exposes a supported table-text path.
 TABLE_TEXT_TRANSLATION_SUPPORTED = False
@@ -296,6 +295,7 @@ class Job:
     output_hashes: dict[str, str] = field(default_factory=dict)
     options: dict[str, Any] = field(default_factory=dict)
     error_message: str = ""
+    runtime_stats: dict[str, Any] = field(default_factory=dict)
     legacy: bool = False
     text_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     source_text_path: Path | None = None
@@ -326,6 +326,7 @@ def public_job(job: Job) -> dict[str, Any]:
         "provider": job.provider,
         "qps": job.qps,
         "options": job.options,
+        "runtime_stats": job.runtime_stats,
         "error_message": job.error_message,
         "created_at": job.created_at,
         "finished_at": job.finished_at,
@@ -396,7 +397,7 @@ def restore_history() -> None:
                       planned_parts=int(record.get("planned_parts", 1)))
             for name in ("filename", "kind", "model", "provider", "qps", "export_texts", "use_cache", "cache_key", "cache_hit",
                          "created_at", "finished_at", "status", "stage", "progress", "current_part", "total_parts",
-                         "dual_requested", "stage_seconds", "text_stats", "output_hashes", "options", "error_message", "legacy", "warnings", "link_stats"):
+                         "dual_requested", "stage_seconds", "text_stats", "output_hashes", "options", "error_message", "legacy", "warnings", "link_stats", "runtime_stats"):
                 if name in record:
                     setattr(job, name, record[name])
             for name in ("output_path", "dual_output_path", "source_text_path", "translated_text_path"):
@@ -457,6 +458,23 @@ def find_cached_job(job: Job) -> Job | None:
             except (ValueError, RuntimeError):
                 continue
     return None
+
+
+def runtime_paths(job: Job) -> dict[str, str]:
+    identity = hashlib.sha256(json.dumps([job.options.get("runtime", {}).get("profile_id", "session"),
+        job.provider, job.model]).encode()).hexdigest()
+    return {"stats_path": str(job.directory / "runtime-statistics.json"),
+            "capability_path": str(ENGINE_CACHE_ROOT / "provider-capabilities" / f"{identity}.json")}
+
+
+def runtime_cache_key(job: Job, input_path: Path) -> str:
+    options = job.options["runtime"]
+    resolved = RequestRuntime(options, capability_path=runtime_paths(job)["capability_path"],
+        model=job.model, base_url=job.provider, metadata=job.options.get("model_metadata")).selected
+    return fingerprint(input_path, provider=job.provider, model=job.model, prompt=AUTO_DETECT_PROMPT,
+        protocol=PROTOCOL_VERSION, batch_tokens=options["batch_tokens"], batch_paragraphs=options["batch_paragraphs"],
+        profile_id=options["profile_id"], reasoning_policy=options["reasoning_policy"], reasoning=resolved,
+        ocr=job.options.get("ocr_assist", False), table=False, dual=job.dual_requested)
 
 
 async def publish(job: Job, event: dict[str, Any]) -> None:
@@ -1284,13 +1302,16 @@ def make_settings(
     ocr_assist: bool,
     generate_dual: bool = False,
     reasoning_effort: str | None = None,
+    runtime_options: dict | None = None,
 ) -> SettingsModel:
     """Make a pdf2zh-next SettingsModel without storing the caller's secret."""
 
     api_base_url = validate_api_base_url(api_base_url)
     qps = max(1, min(int(qps), MAX_QPS))
     reasoning_effort = normalize_reasoning_effort(reasoning_effort)
-    return SettingsModel(
+    settings_type = StudioSettings if runtime_options else SettingsModel
+    return settings_type(
+        **({"studio_runtime": runtime_options} if runtime_options else {}),
         # do_translate_async_stream receives the PDF explicitly through its
         # `file` argument; input_files is only for the CLI/config workflow.
         basic=BasicSettings(input_files=set()),
@@ -1301,11 +1322,9 @@ def make_settings(
             lang_in="en",
             lang_out="zh-CN",
             output=str(output_dir),
-            # The upstream default is 4; modern OpenAI-compatible endpoints can
-            # handle far more.  Higher concurrency is the single biggest speed
-            # lever: each paragraph becomes an independent LLM call.
+            # The 0.4 transport coordinates both native thread pools itself.
             qps=qps,
-            pool_max_workers=qps,
+            pool_max_workers=(runtime_options["max_in_flight"] if runtime_options else qps),
             custom_system_prompt=AUTO_DETECT_PROMPT,
             ignore_cache=IGNORE_TRANSLATION_CACHE,
             # Automatic glossary extraction makes a separate LLM pass over
@@ -1360,6 +1379,7 @@ async def run_translation(
     ocr_assist: bool,
     reasoning_effort: str | None = None,
     cached_job: Job | None = None,
+    runtime_options: dict | None = None,
 ) -> None:
     """Bridge PDFMathTranslate's async event stream to browser-safe SSE events."""
 
@@ -1374,6 +1394,17 @@ async def run_translation(
     output_dir = job.directory / "result"
     output_dir.mkdir(parents=True, exist_ok=True, mode=JOB_DIRECTORY_MODE)
     secure_job_tree(job.directory)
+    async def observe_runtime():
+        while True:
+            try:
+                values = json.loads((job.directory / "runtime-statistics.json").read_text())
+                if values != job.runtime_stats:
+                    job.runtime_stats = values
+                    await publish(job, {"type": "runtime", "runtime_stats": values})
+            except (OSError, ValueError):
+                pass
+            await asyncio.sleep(0.5)
+    monitor = asyncio.create_task(observe_runtime()) if runtime_options else None
     try:
         if job.export_texts:
             job.source_text_path = job.directory / "source.txt"
@@ -1403,6 +1434,7 @@ async def run_translation(
             ocr_assist=ocr_assist,
             generate_dual=job.dual_requested,
             reasoning_effort=reasoning_effort,
+            runtime_options=runtime_options,
         )
         job.status = "running"
         job.stage = "正在连接翻译模型"
@@ -1500,9 +1532,25 @@ async def run_translation(
         job.stage = "译制失败"
         job.finished = True
         await publish(job, {"type": "error", "message": redact_error(exc, api_key)})
+    finally:
+        if monitor:
+            monitor.cancel()
+            with suppress(asyncio.CancelledError):
+                await monitor
+            try:
+                job.runtime_stats = json.loads((job.directory / "runtime-statistics.json").read_text())
+            except (OSError, ValueError):
+                pass
+            persist_job(job)
 
 
 async def complete_translation(job: Job, input_path: Path) -> None:
+    if job.options.get("runtime"):
+        job.cache_key = runtime_cache_key(job, input_path)
+        try:
+            job.runtime_stats = json.loads((job.directory / "runtime-statistics.json").read_text())
+        except (OSError, ValueError):
+            pass
     validate_output_pdf(input_path, job.output_path)
     job.output_hashes["mono"] = await asyncio.to_thread(file_sha256, job.output_path)
     if job.dual_output_path:
@@ -1606,6 +1654,12 @@ async def create_job(
     export_texts: str = Form("true"),
     use_cache: str = Form("true"),
     extract_only: str = Form("false"),
+    concurrency_mode: str | None = Form(None),
+    max_in_flight: int | None = Form(None),
+    request_rate: float | None = Form(None),
+    batch_tokens: int | None = Form(None),
+    reasoning_policy: str | None = Form(None),
+    pipeline_mode: str = Form("optimized"),
 ) -> JSONResponse:
     cleanup_expired_jobs()
     if ENGINE_IMPORT_ERROR:
@@ -1639,6 +1693,21 @@ async def create_job(
         except ValueError:
             pass
     effective_qps = max(1, min(effective_qps, MAX_QPS))
+    if pipeline_mode not in {"optimized", "legacy", "batch_only"}:
+        raise HTTPException(422, "无效的译制流程。")
+    runtime_options = None
+    if not only_text and pipeline_mode == "optimized":
+        values = dict((config or {}).get("runtime", {}))
+        explicit = {"concurrency_mode": concurrency_mode, "max_in_flight": max_in_flight,
+                    "request_rate": request_rate, "batch_tokens": batch_tokens, "reasoning_policy": reasoning_policy}
+        values.update({k: v for k, v in explicit.items() if v is not None})
+        if qps is not None and concurrency_mode is None and not values:
+            values.update(concurrency_mode="manual", max_in_flight=effective_qps, request_rate=effective_qps)
+        values["profile_id"] = str((config or {}).get("profile_id", "session"))
+        try:
+            runtime_options = normalize_options(values, legacy_qps=effective_qps)
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(422, str(exc)) from None
 
     if not only_text and (not effective_base_url or not effective_api_key or not effective_model):
         raise HTTPException(
@@ -1700,10 +1769,23 @@ async def create_job(
                      "export_texts": parse_flag(export_texts) or only_text, "use_cache": parse_flag(use_cache) and not only_text},
         )
         if not only_text:
-            job.cache_key = await asyncio.to_thread(fingerprint, input_path, provider=effective_base_url,
-                model=effective_model, prompt=AUTO_DETECT_PROMPT, ocr=parse_flag(ocr_assist),
-                table=parse_flag(translate_table_text) and TABLE_TEXT_TRANSLATION_SUPPORTED,
-                dual=job.dual_requested, reasoning=effective_reasoning_effort)
+            if runtime_options:
+                job.options["runtime"] = runtime_options
+                metadata = getattr(app.state, "model_catalog", {}).get(effective_model, {})
+                job.options["model_metadata"] = metadata
+                job.cache_key = await asyncio.to_thread(runtime_cache_key, job, input_path)
+                runtime_options = {**runtime_options, **runtime_paths(job), "model_metadata": metadata}
+            else:
+                job.cache_key = await asyncio.to_thread(fingerprint, input_path, provider=effective_base_url,
+                    model=effective_model, prompt=AUTO_DETECT_PROMPT, ocr=parse_flag(ocr_assist),
+                    table=parse_flag(translate_table_text) and TABLE_TEXT_TRANSLATION_SUPPORTED,
+                    dual=job.dual_requested, reasoning=effective_reasoning_effort)
+                # The legacy route is retained for reproducible comparisons;
+                # observe actual requests without changing its transport.
+                runtime_options = {**normalize_options({'concurrency_mode':'manual',
+                    'max_in_flight':effective_qps, 'request_rate':effective_qps,
+                    'reasoning_policy':'provider_default'}), 'observe_legacy':True,
+                    'batch_only':pipeline_mode == 'batch_only', **runtime_paths(job)}
         cached_job = await asyncio.to_thread(find_cached_job, job) if job.use_cache and not only_text else None
         JOBS[job_id] = job
         persist_job(job)
@@ -1718,6 +1800,7 @@ async def create_job(
                 ocr_assist=parse_flag(ocr_assist),
                 reasoning_effort=effective_reasoning_effort,
                 cached_job=cached_job,
+                runtime_options=runtime_options,
             )
         )
         job.task.add_done_callback(lambda task, current=job: _on_job_task_done(current, task))

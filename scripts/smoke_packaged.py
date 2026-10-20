@@ -23,6 +23,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--engine", type=Path, default=ROOT / "build/engine-dist/StudioEngine.app/Contents/MacOS/studio-engine")
     parser.add_argument("--seed-cache", action="store_true")
+    parser.add_argument("--deny-legacy-cache", action="store_true",
+        help="macOS sandbox: forbid reading old BabelDOC assets and any non-loopback network")
     args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix="packaged-smoke-", dir=ROOT / ".runtime") as temp:
         support = Path(temp)
@@ -36,8 +38,18 @@ def main():
         env = dict(os.environ, PDF_STUDIO_SUPPORT_DIR=str(support), PDF_STUDIO_STATE_FILE=str(state),
             PDF_STUDIO_SESSION_TOKEN="packaged-smoke-session", PDF_STUDIO_WEB_DIR=str(ROOT / "build/desktop-web"),
             PDF_STUDIO_PARENT_PID=str(os.getpid()), PATH="/usr/bin:/bin:/usr/sbin:/sbin")
+        command = [str(args.engine)]
+        if args.deny_legacy_cache:
+            policy = support / 'cache-isolation.sb'
+            old_cache = str(Path.home() / '.cache/babeldoc').replace('"', '\\"')
+            policy.write_text(f'''(version 1)
+(allow default)
+(deny file-read-data (subpath "{old_cache}"))
+(deny network-outbound (require-not (remote ip "localhost:*")))
+''')
+            command = ['/usr/bin/sandbox-exec', '-f', str(policy), str(args.engine)]
         with (ROOT / ".runtime/packaged-smoke.log").open("w") as log:
-            process = subprocess.Popen([str(args.engine)], env=env, stdout=log, stderr=log)
+            process = subprocess.Popen(command, env=env, stdout=log, stderr=log)
             try:
                 for _ in range(240):
                     if process.poll() is not None:
@@ -120,6 +132,7 @@ def main():
                         assert "第 1 页" in text.text
                         results[route] = {"bytes": len(text.content), "utf8": True}
                     calls_before = len(ProviderHandler.requests_seen)
+                    assert not any(item.get("hello") for item in ProviderHandler.requests_seen), "Unexpected initialization Hello request"
                     with source.open("rb") as file:
                         reused = client.post("/api/jobs", files={"file": ("fixture.pdf", file, "application/pdf")},
                             data={"api_base_url": provider_url, "model": "group-test-model", "qps": "2", "generate_dual": "true"})
@@ -137,10 +150,12 @@ def main():
                         "provider_requests": len(ProviderHandler.requests_seen), "outputs": results,
                         "verified_document_reuse_without_api_calls": True, "txt_exports": True,
                         "provider": "local deterministic mock"}
+                    report['legacy_cache_read_denied'] = args.deny_legacy_cache
+                    report['external_network_denied'] = args.deny_legacy_cache
                     os.killpg(process.pid, signal.SIGTERM)
                     process.wait(timeout=15)
                     state.unlink(missing_ok=True)
-                    process = subprocess.Popen([str(args.engine)], env=env, stdout=log, stderr=log)
+                    process = subprocess.Popen(command, env=env, stdout=log, stderr=log)
                     for _ in range(240):
                         if process.poll() is not None:
                             raise RuntimeError("Frozen restart failed")
@@ -166,6 +181,10 @@ def main():
                         if path.is_file():
                             assert b"local-test-key" not in path.read_bytes(), f"Credential found in {path.name}"
                     report["job_files_do_not_contain_api_key"] = True
+                    log.flush()
+                    engine_log = (ROOT / '.runtime/packaged-smoke.log').read_text()
+                    assert 'Failed to execute script' not in engine_log, 'A frozen helper process failed; see engine log'
+                    assert 'asset coroutine failed' not in engine_log, 'A helper attempted missing resource downloads'
                     (ROOT / ".runtime/packaged-smoke-result.json").write_text(json.dumps(report, indent=2))
                     print(json.dumps(report, indent=2), flush=True)
             finally:

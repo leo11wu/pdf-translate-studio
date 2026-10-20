@@ -3,56 +3,6 @@ import WebKit
 import Security
 import UniformTypeIdentifiers
 
-struct ProviderProfile: Codable {
-    var base_url = "https://api.openai.com/v1"
-    var model = ""
-    var api_key = ""
-    var qps = 8
-
-    func publicValues(remembered: Bool) -> [String: Any] {
-        ["base_url": base_url, "model": model, "qps": qps,
-         "key_available": !api_key.isEmpty, "remembered": remembered]
-    }
-}
-
-enum StudioError: LocalizedError {
-    case message(String)
-    var errorDescription: String? { if case .message(let value) = self { return value }; return nil }
-}
-
-struct KeychainStore {
-    let service: String
-    private var query: [String: Any] {
-        [kSecClass as String: kSecClassGenericPassword,
-         kSecAttrService as String: service, kSecAttrAccount as String: "current-provider",
-         kSecAttrSynchronizable as String: false]
-    }
-    func read() throws -> Data? {
-        var search = query
-        search[kSecReturnData as String] = true
-        search[kSecMatchLimit as String] = kSecMatchLimitOne
-        var result: CFTypeRef?
-        let status = SecItemCopyMatching(search as CFDictionary, &result)
-        if status == errSecItemNotFound { return nil }
-        guard status == errSecSuccess else { throw StudioError.message("无法读取钥匙串（\(status)）。请解锁登录钥匙串后重试，也可仅在本次使用密钥。") }
-        return result as? Data
-    }
-    func save(_ data: Data) throws {
-        let updated = SecItemUpdate(query as CFDictionary, [kSecValueData as String: data] as CFDictionary)
-        if updated == errSecSuccess { return }
-        guard updated == errSecItemNotFound else { throw StudioError.message("无法更新钥匙串（\(updated)）。") }
-        var item = query
-        item[kSecValueData as String] = data
-        item[kSecAttrLabel as String] = "纸间 · API 配置"
-        let status = SecItemAdd(item as CFDictionary, nil)
-        guard status == errSecSuccess else { throw StudioError.message("无法保存到钥匙串（\(status)）。密钥没有写入普通文件。") }
-    }
-    func delete() throws {
-        let status = SecItemDelete(query as CFDictionary)
-        guard status == errSecSuccess || status == errSecItemNotFound else { throw StudioError.message("无法删除钥匙串记录（\(status)）。") }
-    }
-}
-
 final class StudioDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate,
     WKNavigationDelegate, WKUIDelegate, WKDownloadDelegate, WKScriptMessageHandlerWithReply {
     private var window: NSWindow!
@@ -66,11 +16,15 @@ final class StudioDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate,
     private var checkingHealth = false
     private var terminating = false
     private var token = UUID().uuidString + UUID().uuidString
-    private var sessionProfile = ProviderProfile()
     private let profileQueue = DispatchQueue(label: "org.paperstudio.credentials")
     private let exportQueue = DispatchQueue(label: "org.paperstudio.exports")
-    private let keychain = KeychainStore(service: Bundle.main.bundleIdentifier == "org.paperstudio.qa"
-        ? "org.paperstudio.qa.api-profile" : "org.paperstudio.api-profile")
+    private lazy var providerStore = ProviderStore(
+        read: { UserDefaults.standard.data(forKey: "providerProfilesV2") },
+        write: { UserDefaults.standard.set($0, forKey: "providerProfilesV2") },
+        legacy: { UserDefaults.standard.dictionary(forKey: "provider") },
+        secrets: { account in KeychainStore(service: Bundle.main.bundleIdentifier == "org.paperstudio.qa"
+            ? "org.paperstudio.qa.api-profile" : "org.paperstudio.api-profile", account: account) },
+        send: { [unowned self] profile in try self.sendProfile(profile) })
     private var downloadTargets: [ObjectIdentifier: (URL, URL)] = [:]
     private lazy var supportURL: URL = {
         if let override = ProcessInfo.processInfo.environment["PDF_STUDIO_SUPPORT_DIR"] {
@@ -94,7 +48,7 @@ final class StudioDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate,
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1200, height: 860),
                           styleMask: [.titled, .closable, .miniaturizable, .resizable],
                           backing: .buffered, defer: false)
-        window.title = "纸间 · PDF 译制台"
+        window.title = Bundle.main.bundleIdentifier == "org.paperstudio.qa" ? "纸间 QA · 模拟测试（请勿填写真实密钥）" : "纸间 · PDF 译制台"
         window.minSize = NSSize(width: 900, height: 660)
         window.delegate = self
         window.center()
@@ -216,6 +170,21 @@ final class StudioDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate,
                     self.bootTimer?.invalidate()
                     self.sessionURL = base
                     self.showWebView(base)
+                    #if PAPERSTUDIO_VALIDATION
+                    if let plan = ProcessInfo.processInfo.environment["PAPERSTUDIO_VALIDATION_PLAN"] {
+                        DispatchQueue.global(qos: .utility).async {
+                            do {
+                                var provider = ""
+                                try self.profileQueue.sync {
+                                    try self.providerStore.load()
+                                    provider = self.providerStore.session.base_url
+                                }
+                                ValidationDriver.run(planPath: plan, base: base, token: self.token, providerURL: provider,
+                                                     export: { try self.exportJob($0) })
+                            } catch { ValidationDriver.trace("Validation configuration error: \(error.localizedDescription)") }
+                        }
+                    }
+                    #endif
                 }
             }
         }.resume()
@@ -281,6 +250,17 @@ final class StudioDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate,
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.beginSheetModal(for: window) { response in completionHandler(response == .OK ? panel.urls : nil) }
+    }
+
+    func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String,
+                 initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
+        guard local(frame.request.url) else { completionHandler(false); return }
+        let alert = NSAlert()
+        alert.messageText = "确认操作"
+        alert.informativeText = message
+        alert.addButton(withTitle: "确认")
+        alert.addButton(withTitle: "取消")
+        alert.beginSheetModal(for: window) { completionHandler($0 == .alertFirstButtonReturn) }
     }
 
     func download(_ download: WKDownload, decideDestinationUsing response: URLResponse, suggestedFilename: String,
@@ -539,47 +519,28 @@ final class StudioDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate,
         profileQueue.async { [weak self] in
             guard let self = self else { return }
             do {
-                var remembered = false
                 switch action {
-                case "load":
-                    var profile = ProviderProfile()
-                    if let values = UserDefaults.standard.dictionary(forKey: "provider") {
-                        profile.base_url = values["base_url"] as? String ?? profile.base_url
-                        profile.model = values["model"] as? String ?? ""
-                        profile.qps = values["qps"] as? Int ?? 8
-                    }
-                    if let data = try self.keychain.read(), let saved = try? JSONDecoder().decode(ProviderProfile.self, from: data),
-                       saved.base_url == profile.base_url {
-                        profile.api_key = saved.api_key
-                        remembered = !saved.api_key.isEmpty
-                    }
-                    try self.sendProfile(profile)
-                    self.sessionProfile = profile
+                case "load", "list":
+                    try self.providerStore.load()
+                case "select":
+                    try self.providerStore.select(body["profile_id"] as? String ?? "")
                 case "save":
                     guard let values = body["profile"] as? [String: Any] else { throw StudioError.message("配置内容无效。") }
                     var profile = ProviderProfile()
+                    profile.id = values["id"] as? String ?? self.providerStore.session.id
+                    profile.name = String((values["name"] as? String ?? "").prefix(100))
                     profile.base_url = try self.normalizedURL(values["base_url"] as? String ?? "")
                     profile.model = (values["model"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
                     profile.qps = max(1, min(values["qps"] as? Int ?? 8, 64))
+                    profile.runtime = RuntimePreferences(values: values["runtime"] as? [String: Any] ?? [:])
                     profile.api_key = (values["api_key"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-                    if profile.api_key.isEmpty && profile.base_url == self.sessionProfile.base_url {
-                        profile.api_key = self.sessionProfile.api_key
-                    }
-                    guard !profile.api_key.isEmpty, !profile.model.isEmpty else { throw StudioError.message("请完整填写 API 地址、密钥和模型。") }
-                    remembered = values["remember"] as? Bool ?? false
-                    if remembered { try self.keychain.save(JSONEncoder().encode(profile)) }
-                    else { try self.keychain.delete() }
-                    try self.sendProfile(profile)
-                    UserDefaults.standard.set(["base_url": profile.base_url, "model": profile.model, "qps": profile.qps] as [String: Any], forKey: "provider")
-                    self.sessionProfile = profile
-                case "forget":
-                    try self.keychain.delete()
-                    self.sessionProfile.api_key = ""
-                    try self.sendProfile(self.sessionProfile)
+                    try self.providerStore.save(profile, remember: values["remember"] as? Bool ?? true)
+                case "forget", "delete":
+                    try self.providerStore.forget(deleteRecord: action == "delete")
                 default:
                     throw StudioError.message("不支持的配置操作。")
                 }
-                let result = self.sessionProfile.publicValues(remembered: remembered)
+                let result = self.providerStore.publicValues()
                 DispatchQueue.main.async { replyHandler(result, nil) }
             } catch {
                 let description = error.localizedDescription
@@ -633,6 +594,9 @@ final class StudioDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate,
     }
 }
 
+@main
+struct StudioMain {
+    static func main() {
 if CommandLine.arguments.contains("--self-test-keychain") {
     let store = KeychainStore(service: "org.paperstudio.test.\(UUID().uuidString)")
     do {
@@ -654,4 +618,6 @@ if CommandLine.arguments.contains("--self-test-keychain") {
     let delegate = StudioDelegate()
     app.delegate = delegate
     app.run()
+}
+    }
 }

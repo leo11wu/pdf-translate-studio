@@ -28,8 +28,8 @@ class ProviderHandler(BaseHTTPRequestHandler):
         if self.path != "/v1/chat/completions":
             return self.respond({"detail": "not found"}, 404)
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
-        self.requests_seen.append({"model": body.get("model"), "path": self.path})
         content = body["messages"][-1]["content"]
+        self.requests_seen.append({"model": body.get("model"), "path": self.path, "hello": content.strip() == "Hello" or content.rstrip().endswith("Hello")})
         translation = "你好"
         if "## Here is the input:" in content:
             entries = json.loads(content.rsplit("## Here is the input:", 1)[1].strip())
