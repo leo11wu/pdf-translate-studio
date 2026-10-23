@@ -45,25 +45,49 @@ _runtime = None
 _placeholder = re.compile(r"\{[^{}]*\}|</?(?:style|b|code)(?:\s[^>]*)?>|\[\[.*?\]\]|%%.*?%%|%[sd]")
 
 
+class InvalidTranslationResponse(RuntimeError):
+    pass
+
+
 def literal_only(text):
     plain = _placeholder.sub("", text).strip()
     return not plain or bool(re.fullmatch(
         r"(?:https?://\S+|www\.\S+|(?:doi:\s*)?10\.\d{4,9}/\S+|[\d\s.,%+−–=()\[\]/:;-]+|[A-Z][A-Z\d&_. /-]{0,35})", plain, re.I if plain.lower().startswith(("http", "www", "doi:", "10.")) else 0))
 
 
-def valid_output(source, translated):
+def output_issue(source, translated):
     if not isinstance(translated, str) or not translated.strip():
-        return False
+        return "译文为空"
     if Counter(_placeholder.findall(source)) != Counter(_placeholder.findall(translated)):
-        return False
+        return "公式或样式标记不完整"
     for marker in ("## Here is the input:", "## Structure Rules", "Return a JSON array"):
         if marker in translated and marker not in source:
-            return False
+            return "返回了提示词内容"
     if translated.strip() == source.strip() and not literal_only(source):
         # Names and short labels may legitimately remain unchanged.
         if len(source.split()) > 12 and not re.search(r"[\u3400-\u9fff]", source):
-            return False
-    return True
+            return "正文未翻译"
+    return ""
+
+
+def valid_output(source, translated):
+    return not output_issue(source, translated)
+
+
+def normalize_placeholders(source, translated):
+    """Canonicalize equivalent spellings without inventing missing markers."""
+    if not isinstance(translated, str):
+        return translated
+    styles = {m.group(1) for m in re.finditer(r"<style id='(\d+)'>", source)}
+    formulas = {m.group(1) for m in re.finditer(r"\{v(\d+)\}", source)}
+    translated = re.sub(r"<\s*style\s+id\s*=\s*['\"]\s*(\d+)\s*['\"]\s*>",
+        lambda m: f"<style id='{m.group(1)}'>" if m.group(1) in styles else m.group(0),
+        translated, flags=re.I)
+    if '</style>' in source:
+        translated = re.sub(r"<\s*/\s*style\s*>", '</style>', translated, flags=re.I)
+    return re.sub(r"\{\s*v\s*(\d+)\s*\}",
+        lambda m: '{v'+m.group(1)+'}' if m.group(1) in formulas else m.group(0),
+        translated, flags=re.I)
 
 
 def parse_outputs(text, expected):
@@ -88,7 +112,7 @@ def parse_outputs(text, expected):
             continue
         id_ = row["id"]
         counts[id_] += 1
-        value = row.get("output")
+        value = normalize_placeholders(expected[id_], row.get("output"))
         if valid_output(expected[id_], value):
             results[id_] = value
     for id_, count in counts.items():
@@ -131,12 +155,14 @@ class StudioTranslator(OpenAITranslator):
 
     def _call(self, messages):
         response = self.runtime.request(self.client, messages)
+        if not response.choices:
+            raise InvalidTranslationResponse("接口没有返回译文选项")
         choice = response.choices[0]
         if choice.finish_reason == "length":
             raise ContextLimitError("译文被接口截断，需要缩小批次。")
         text = choice.message.content
         if not isinstance(text, str):
-            raise RuntimeError("翻译接口未返回文本译文。")
+            raise InvalidTranslationResponse("接口没有返回文本译文")
         return self._remove_cot_content(text).strip()
 
     def do_llm_translate(self, text, rate_limit_params=None):
@@ -145,7 +171,11 @@ class StudioTranslator(OpenAITranslator):
         return self._call([{"role": "user", "content": text}])
 
     def do_translate(self, text, rate_limit_params=None):
-        return self._call(self.prompt(text))
+        messages = [{"role": "system", "content":
+            "Translate the supplied paragraph into Simplified Chinese. Return only its translation. "
+            "Copy every formula placeholder and every style tag exactly, preserving their numbers, "
+            "quotes and spelling. Do not add JSON, markdown fences, explanations or notes."}]
+        return self._call(messages + self.prompt(text))
 
 
 class StudioBatchTranslator(ILTranslatorLLMOnly):
@@ -215,40 +245,116 @@ class StudioBatchTranslator(ILTranslatorLLMOnly):
             tokens += count
         submit()
 
-    def resolve(self, entries, title, local_title):
+    def resolve(self, entries, title, local_title, *, _split_depth=0):
+        # Retries without progress share an envelope, including transport and
+        # capability negotiation. Smaller repair tasks get their own envelope.
+        with self.runtime.budget():
+            return self._resolve(entries, title, local_title, _split_depth)
+
+    def repair_protected(self, item, title, local_title):
+        # Translate text spans in place while keeping every original marker.
+        # This path reduces the problem to marker-free units and cannot recurse
+        # back into itself. It trades sentence-wide reordering for intact math.
+        source = item['input']
+        pieces, protected, cursor = [], set(), 0
+        for match in _placeholder.finditer(source):
+            pieces.append(source[cursor:match.start()])
+            protected.add(len(pieces))
+            pieces.append(match.group())
+            cursor = match.end()
+        pieces.append(source[cursor:])
+        entries = [{**item, 'id':i, 'input':text} for i, text in enumerate(pieces)
+                   if i not in protected]
+        outputs = {}
+        limit = self.runtime.options['batch_paragraphs']
+        with self.runtime.condition:
+            self.runtime.stats['protected_fallbacks'] += 1
+        for offset in range(0, len(entries), limit):
+            with self.runtime.budget(fresh=True):
+                outputs.update(self.resolve(entries[offset:offset+limit], title, local_title))
+        combined = ''.join(text if i in protected else outputs[i] for i, text in enumerate(pieces))
+        if not valid_output(source, combined):
+            raise RuntimeError("保留公式的分段翻译未通过完整性校验。")
+        return {item['id']:combined}
+
+    def _resolve(self, entries, title, local_title, split_depth):
         expected = {item["id"]: item["input"] for item in entries}
         resolved = {id_: text for id_, text in expected.items() if literal_only(text)}
         pending = [item for item in entries if item["id"] not in resolved]
         if not pending:
             return resolved
+        requested_count = len(pending)
         prompt = self._build_llm_prompt(json.dumps(pending, ensure_ascii=False, separators=(",", ":")),
             title, local_title, "\n".join(item["input"] for item in pending))
         split = False
+        context_limit = False
         try:
-            response = self.translate_engine.llm_translate(prompt, ignore_cache=True)
-            good, missing, split = parse_outputs(response, {item["id"]: item["input"] for item in pending})
+            budget = self.runtime.local.budget
+            if len(pending) == 1 and budget.attempts >= 3 and _placeholder.search(pending[0]['input']):
+                resolved.update(self.repair_protected(pending[0], title, local_title))
+                return resolved
+            if len(pending) == 1 and budget.attempts >= 2:
+                # A provider may translate well while failing the JSON schema.
+                # Repair just this paragraph with its plain translation prompt;
+                # formula/style validation and the same retry limit still apply.
+                item = pending[0]
+                with self.runtime.condition:
+                    self.runtime.stats["single_fallbacks"] += 1
+                response = normalize_placeholders(item['input'], self.translate_engine.translate(item["input"], ignore_cache=True))
+                issue = output_issue(item["input"], response)
+                try:
+                    if isinstance(json.loads(response), (dict, list)):
+                        issue = "单段译文仍包含数据包装"
+                except (TypeError, ValueError):
+                    pass
+                if response.lstrip().startswith(("```", "<json>")):
+                    issue = "单段译文仍包含数据包装"
+                good = {} if issue else {item["id"]: response}
+                missing = set(expected) - set(good)
+                budget.last_issue = issue
+            else:
+                response = self.translate_engine.llm_translate(prompt, ignore_cache=True)
+                good, missing, split = parse_outputs(response, {item["id"]: item["input"] for item in pending})
+                budget.last_issue = "返回格式不符合段落列表" if split else "段落缺失、重复或译文校验未通过"
+                # Invalid content also needs smaller repair units, even when
+                # the provider returned syntactically valid JSON.
+                split = split or not good
             resolved.update(good)
             pending = [item for item in pending if item["id"] in missing]
         except ContextLimitError:
             split = True
+            context_limit = True
+        except InvalidTranslationResponse as exc:
+            split = True
+            self.runtime.local.budget.last_issue = str(exc)
         if pending:
             with self.runtime.condition:
                 self.runtime.stats["protocol_retries"] += 1
             self.runtime.emit(force=True)
+
+            def child(items, *, depth=split_depth):
+                with self.runtime.budget(fresh=True):
+                    return self.resolve(items, title, local_title, _split_depth=depth)
+
             if split and len(pending) > 1:
                 middle = len(pending) // 2
-                resolved.update(self.resolve(pending[:middle], title, local_title))
-                resolved.update(self.resolve(pending[middle:], title, local_title))
-            elif split:
+                resolved.update(child(pending[:middle]))
+                resolved.update(child(pending[middle:]))
+            elif context_limit:
+                if split_depth >= 8:
+                    raise RuntimeError("单段翻译多次拆分后仍超过接口限制，请选择上下文容量更大的模型。")
                 item = pending[0]
                 left, right = split_sentence(item["input"])
-                pieces = self.resolve([{**item, "id": 0, "input": left}, {**item, "id": 1, "input": right}], title, local_title)
+                pieces = child([{**item, "id": 0, "input": left}, {**item, "id": 1, "input": right}], depth=split_depth + 1)
                 combined = pieces[0] + pieces[1]
                 if not valid_output(item["input"], combined):
                     raise RuntimeError("长段拆分后的公式或样式占位符校验失败。")
                 resolved[item["id"]] = combined
             else:
-                resolved.update(self.resolve(pending, title, local_title))
+                if len(pending) < requested_count:
+                    resolved.update(child(pending))
+                else:
+                    resolved.update(self.resolve(pending, title, local_title, _split_depth=split_depth))
         return resolved
 
     def translate_paragraph(self, batch_paragraph, pbar=None, page_font_map=None, xobj_font_map=None,
@@ -279,6 +385,8 @@ class StudioBatchTranslator(ILTranslatorLLMOnly):
                 outputs = self.resolve(entries, title_paragraph, local_title_paragraph)
             for index, (paragraph, tracker, ti) in enumerate(prepared):
                 self.il_translator.post_translate_paragraph(paragraph, tracker, ti, outputs[index])
+                with self.runtime.condition:
+                    self.runtime.stats["validated_paragraphs"] += 1
                 if pbar:
                     pbar.advance(1)
             with self.error_lock:

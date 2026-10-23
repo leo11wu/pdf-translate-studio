@@ -18,7 +18,9 @@ export default function RuntimeStatus({ job }: { job: TranslationJob }) {
   const delay = Math.max(0, (active ? now : job.finished_at ?? now) - (stats.last_response_at ?? job.created_at));
   return <div className="runtime-status" aria-live="polite">
     <strong>{active ? stage : job.status === "completed" ? "请求处理已完成" : "请求处理已停止"}</strong>
-    <p>成功 {stats.successful_requests ?? 0} / 请求 {stats.requests ?? 0} 次 · 在途 {active ? stats.in_flight ?? 0 : 0} / {stats.effective_concurrency ?? 0} · 限流重试 {stats.rate_limits ?? 0} 次</p>
+    <p>接口响应 {stats.successful_requests ?? 0} / 请求 {stats.requests ?? 0} 次 · 在途 {active ? stats.in_flight ?? 0 : 0} / {stats.effective_concurrency ?? 0} · 限流重试 {stats.rate_limits ?? 0} 次</p>
+    {typeof stats.validated_paragraphs === "number" && <p>已翻译并校验 {stats.validated_paragraphs} 个段落{stats.protocol_retries ? ` · 段落修复 ${stats.protocol_retries} 次` : ""}{stats.single_fallbacks ? ` · 单段翻译修复 ${stats.single_fallbacks} 次` : ""}</p>}
+    {!!stats.protected_fallbacks && <p>已保留公式和样式，对 {stats.protected_fallbacks} 个复杂段落分段翻译；阅读时请对照核对语序。</p>}
     {active && <p>{stats.last_response_at ? "距离最近响应" : "等待首个响应"} {elapsed(delay)}{stats.retry_after_seconds ? ` · 本轮退避约 ${stats.retry_after_seconds} 秒` : ""}</p>}
     <p>{stats.reasoning_status}</p>
     {stats.usage && Object.keys(stats.usage).length > 0 && <details><summary>服务商返回的用量与请求耗时</summary>

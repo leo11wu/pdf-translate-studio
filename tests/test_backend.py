@@ -363,6 +363,9 @@ class BackendConfigTests(unittest.TestCase):
     def test_error_redaction(self):
         error = RuntimeError("request failed for secret-token")
         self.assertNotIn("secret-token", app.redact_error(error, "secret-token"))
+        repeated = RuntimeError("Babeldoc translation error: request failed for secret-token"
+            " - Original error: request failed for secret-token - Original error: request failed for secret-token")
+        self.assertEqual(app.redact_error(repeated, "secret-token"), "request failed for [已隐藏]")
 
     def test_cancelled_task_callback_closes_job(self):
         job = app.Job(
@@ -436,7 +439,7 @@ class BackendConfigTests(unittest.TestCase):
         )
         self.assertEqual(settings.translate_engine_settings.openai_compatible_base_url, "https://api.example.test/v1")
         self.assertEqual(settings.pdf.watermark_output_mode, "no_watermark")
-        self.assertTrue(settings.pdf.no_dual)
+        self.assertFalse(settings.pdf.no_dual)
         self.assertFalse(settings.pdf.translate_table_text)
         self.assertTrue(settings.translation.ignore_cache)
         self.assertEqual(

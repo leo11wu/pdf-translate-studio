@@ -85,7 +85,7 @@ export default function Home({ desktop = false }: { desktop?: boolean } = {}) {
   const [tableText, setTableText] = useState(false);
   const [tableTextSupported, setTableTextSupported] = useState(false);
   const [ocrAssist, setOcrAssist] = useState(false);
-  const [generateDual, setGenerateDual] = useState(false);
+  const [generateDual, setGenerateDual] = useState(true);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [notice, setNotice] = useState("");
   const [configLoaded, setConfigLoaded] = useState(false);
@@ -405,7 +405,7 @@ export default function Home({ desktop = false }: { desktop?: boolean } = {}) {
                 ) : (
                   <div className="toggle-row is-disabled"><span><strong>表格文字翻译</strong><small>当前引擎暂不支持；表格结构与位置仍会保留</small></span><span className="feature-status">待支持</span></div>
                 )}
-                <div className="toggle-row"><span><strong>生成中英对照版</strong><small>按需生成；会增加一次版式渲染与合并时间</small></span><button type="button" className={generateDual ? "toggle-control is-on" : "toggle-control"} role="switch" aria-label="生成中英对照版" aria-checked={generateDual} disabled={jobIsActive} onClick={() => setGenerateDual((value) => !value)}><i aria-hidden="true" /></button></div>
+                <div className="toggle-row"><span><strong>生成中英对照版</strong><small>默认开启；关闭后仅生成中文译文 PDF</small></span><button type="button" className={generateDual ? "toggle-control is-on" : "toggle-control"} role="switch" aria-label="生成中英对照版" aria-checked={generateDual} disabled={jobIsActive} onClick={() => setGenerateDual((value) => !value)}><i aria-hidden="true" /></button></div>
                 <div className="toggle-row"><span><strong>扫描件版式辅助</strong><small>按需开启；会增加扫描 PDF 的预处理时间</small></span><button type="button" className={ocrAssist ? "toggle-control is-on" : "toggle-control"} role="switch" aria-label="扫描件版式辅助" aria-checked={ocrAssist} disabled={jobIsActive} onClick={() => setOcrAssist((value) => !value)}><i aria-hidden="true" /></button></div>
               </div>
             </div>
@@ -470,7 +470,7 @@ export default function Home({ desktop = false }: { desktop?: boolean } = {}) {
       <section className="principles content-width" aria-label="工作方式">
         <article><span>01</span><h3>混合语言无需手设</h3><p>翻译提示词要求模型按段判断德语、英语或其他自然语言，再统一转为中文。</p></article>
         <article><span>02</span><h3>结构优先于重排</h3><p>公式、图形与页面对象优先保护；文字在原版面坐标内适配，而非重新生成文档。</p></article>
-        <article><span>03</span><h3>大书也按需交付</h3><p>处理端自动拆分长 PDF，默认汇总纯译文；需要核对时再生成中英对照版。</p></article>
+        <article><span>03</span><h3>长文自动合并</h3><p>处理端自动拆分长 PDF，默认生成中英对照版，并同时提供中文译文。</p></article>
       </section>
       <footer className="footer content-width"><span>纸间 / 本地 PDF 译制台</span><span>复杂 PDF 的版式保留程度取决于原文件结构；建议先试译典型页面。</span></footer>
     </main>

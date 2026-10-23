@@ -16,7 +16,7 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.4.1"
+VERSION = "0.4.2"
 RELEASE = ROOT / "release"
 BUILD = ROOT / "build"
 
@@ -100,7 +100,7 @@ def main():
     shutil.copy2(ROOT / "desktop/使用说明.txt", resources / "使用说明.txt")
     info = {"CFBundleExecutable": "PaperStudio", "CFBundleIdentifier": "org.paperstudio.app",
             "CFBundleName": "纸间", "CFBundleDisplayName": "纸间 · PDF 译制台", "CFBundlePackageType": "APPL",
-            "CFBundleShortVersionString": VERSION, "CFBundleVersion": "5", "LSMinimumSystemVersion": "14.0",
+            "CFBundleShortVersionString": VERSION, "CFBundleVersion": "6", "LSMinimumSystemVersion": "14.0",
             "NSHighResolutionCapable": True, "NSPrincipalClass": "NSApplication", "CFBundleIconFile": "Studio.icns",
             "NSAppTransportSecurity": {"NSAllowsLocalNetworking": True},
             "NSHumanReadableCopyright": "纸间 · PDF 译制台；第三方授权见随附说明。"}

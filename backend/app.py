@@ -145,6 +145,9 @@ def redact_error(error: BaseException, *secrets: str) -> str:
         if secret:
             message = message.replace(secret, "[已隐藏]")
     message = " ".join(message.split())
+    # The engine repeats the same failure at each multiprocessing boundary.
+    message = message.split(" - Original error:", 1)[0]
+    message = message.removeprefix("Babeldoc translation error: ")
     return message if len(message) <= 500 else message[:500] + "..."
 
 
@@ -362,8 +365,8 @@ def job_artifacts(job: Job) -> list[dict[str, str]]:
     if job.status != "completed":
         return []
     stem = Path(job.filename).stem
-    available = [("pdf", job.output_path, "download", f"{stem}.zh-CN.pdf"),
-                 ("dual", job.dual_output_path, "download-dual", f"{stem}.zh-CN.dual.pdf"),
+    available = [("dual", job.dual_output_path, "download-dual", f"{stem}.zh-CN.dual.pdf"),
+                 ("pdf", job.output_path, "download", f"{stem}.zh-CN.pdf"),
                  ("source_txt", job.source_text_path, "source.txt", f"{stem}.source.txt"),
                  ("translated_txt", job.translated_text_path, "translated.txt", f"{stem}.zh-CN.txt")]
     return [{"kind": kind, "filename": name, "route": f"/api/jobs/{job.job_id}/{route}"}
@@ -1367,7 +1370,7 @@ def make_settings(
     part_pages: int | None,
     translate_table_text: bool,
     ocr_assist: bool,
-    generate_dual: bool = False,
+    generate_dual: bool = True,
     reasoning_effort: str | None = None,
     runtime_options: dict | None = None,
 ) -> SettingsModel:
@@ -1403,8 +1406,7 @@ def make_settings(
             save_auto_extracted_glossary=False,
         ),
         pdf=PDFSettings(
-            # The monolingual PDF is the core deliverable. Side-by-side output
-            # is opt-in because it requires a second full rendering pass.
+            # Side-by-side output is the default for reading and checking papers.
             no_dual=not generate_dual,
             dual_translate_first=True,
             no_mono=False,
@@ -1565,6 +1567,8 @@ async def run_translation(
                 )
                 validate_output_pdf(input_path, job.output_path)
                 dual_pdf_path = getattr(result, "dual_pdf_path", None)
+                if job.dual_requested and (not dual_pdf_path or not Path(dual_pdf_path).is_file()):
+                    raise RuntimeError("未生成所需的中英对照 PDF，已阻止将任务标记为完成。")
                 if (
                     job.dual_requested
                     and dual_pdf_path
@@ -1619,6 +1623,11 @@ async def complete_translation(job: Job, input_path: Path) -> None:
         except (OSError, ValueError):
             pass
     validation = validate_output_pdf(input_path, job.output_path)
+    if job.runtime_stats.get("protected_fallbacks"):
+        warning = (f"{job.runtime_stats['protected_fallbacks']} 个复杂段落采用保留公式和样式的分段翻译，"
+                   "请对照原文核对语序与衔接。")
+        if warning not in job.warnings:
+            job.warnings.append(warning)
     if validation["inherited_nul_glyphs"]:
         pages = "、".join(map(str, validation["nul_pages"]))
         warning = f"原稿第 {pages} 页有公式字体无法完整映射为 Unicode；PDF 已核对并保留原字形，TXT 的公式符号请对照原稿。"
@@ -1767,7 +1776,7 @@ async def create_job(
     part_pages: int = Form(DEFAULT_PART_PAGES),
     translate_table_text: str = Form("false"),
     ocr_assist: str = Form("false"),
-    generate_dual: str = Form("false"),
+    generate_dual: str = Form("true"),
     export_texts: str = Form("true"),
     use_cache: str = Form("true"),
     extract_only: str = Form("false"),

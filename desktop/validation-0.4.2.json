@@ -1,0 +1,1029 @@
+{
+  "version": "0.4.2",
+  "date": "2026-10-23",
+  "baseline": "isolated 0.4.1 source; 0.5 scan work excluded",
+  "source_sha256": "bf38e9e6f4d62ae7405acf9e4d9a08b36afc7f73b3f775b1ec11735987682825",
+  "tested_engine_sha256": "9b69648fd952ae67445a18e665410c4fc30cd51aa2dab6bac7dcd33b145382fd",
+  "unit_tests": {
+    "maintenance_workspace": 93,
+    "isolated_release": 70,
+    "runtime": 24
+  },
+  "frontend": {
+    "typescript": "passed",
+    "eslint": "passed",
+    "build": "passed",
+    "bilingual_default": true
+  },
+  "real_provider_cases": {
+    "deepseek-structural": {
+      "model": "deepseek-v4.1-flash",
+      "elapsed_seconds": 128.85,
+      "runtime_stats": {
+        "requests": 99,
+        "successful_requests": 99,
+        "in_flight": 0,
+        "peak_in_flight": 12,
+        "rate_limits": 0,
+        "upstream_errors": 0,
+        "protocol_retries": 34,
+        "capability_retries": 0,
+        "request_seconds": 502.949,
+        "validated_paragraphs": 162,
+        "single_fallbacks": 8,
+        "protected_fallbacks": 6,
+        "last_response_at": 1792735286.011987,
+        "usage": {
+          "prompt_tokens": 84620,
+          "completion_tokens": 29431,
+          "total_tokens": 114051
+        },
+        "status": "finished",
+        "reasoning_status": "已请求最低（none），服务商未确认实际设置",
+        "reasoning_confirmed": false,
+        "last_request_seconds": 3.725,
+        "reasoning_setting": "none",
+        "effective_concurrency": 16,
+        "request_rate": 2.0,
+        "retry_after_seconds": 0,
+        "updated_at": 1792735293.6134899
+      },
+      "artifacts": {
+        "translation.zh-CN.pdf": {
+          "bytes": 1745633,
+          "sha256": "24f4518b0ebde806d29a68690611638c94f5234adc87460dd08a11d2b47a25a5",
+          "pages": [
+            {
+              "page": 1,
+              "characters": 1253,
+              "han": 624,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 2,
+              "characters": 1365,
+              "han": 835,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 3,
+              "characters": 1572,
+              "han": 1095,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 4,
+              "characters": 1831,
+              "han": 1337,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 5,
+              "characters": 2111,
+              "han": 1201,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 6,
+              "characters": 1664,
+              "han": 1246,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 7,
+              "characters": 824,
+              "han": 443,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 8,
+              "characters": 946,
+              "han": 578,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 9,
+              "characters": 958,
+              "han": 727,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 10,
+              "characters": 1100,
+              "han": 790,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 11,
+              "characters": 1792,
+              "han": 1409,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 12,
+              "characters": 1201,
+              "han": 880,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 13,
+              "characters": 1496,
+              "han": 1050,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 14,
+              "characters": 588,
+              "han": 392,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 15,
+              "characters": 1857,
+              "han": 1332,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 16,
+              "characters": 1761,
+              "han": 1244,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 17,
+              "characters": 1104,
+              "han": 723,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 18,
+              "characters": 1823,
+              "han": 1288,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 19,
+              "characters": 1474,
+              "han": 1189,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 20,
+              "characters": 6036,
+              "han": 13,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 21,
+              "characters": 3773,
+              "han": 930,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 22,
+              "characters": 3467,
+              "han": 818,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 23,
+              "characters": 1715,
+              "han": 331,
+              "replacement_glyphs": 0
+            }
+          ]
+        },
+        "translation.zh-CN.dual.pdf": {
+          "bytes": 2913651,
+          "sha256": "15f6b87ff8562a7c7912b2aa0406c63f873c01385b9802e3ca97349d5c7bbf7b",
+          "pages": [
+            {
+              "page": 1,
+              "characters": 4268,
+              "han": 624,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 2,
+              "characters": 4915,
+              "han": 835,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 3,
+              "characters": 6320,
+              "han": 1095,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 4,
+              "characters": 7328,
+              "han": 1337,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 5,
+              "characters": 7850,
+              "han": 1201,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 6,
+              "characters": 7141,
+              "han": 1246,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 7,
+              "characters": 2856,
+              "han": 443,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 8,
+              "characters": 3735,
+              "han": 578,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 9,
+              "characters": 4143,
+              "han": 727,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 10,
+              "characters": 4643,
+              "han": 790,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 11,
+              "characters": 7629,
+              "han": 1409,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 12,
+              "characters": 5021,
+              "han": 880,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 13,
+              "characters": 6048,
+              "han": 1050,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 14,
+              "characters": 2319,
+              "han": 392,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 15,
+              "characters": 7731,
+              "han": 1332,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 16,
+              "characters": 7230,
+              "han": 1244,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 17,
+              "characters": 4386,
+              "han": 723,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 18,
+              "characters": 7509,
+              "han": 1288,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 19,
+              "characters": 6455,
+              "han": 1189,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 20,
+              "characters": 12062,
+              "han": 13,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 21,
+              "characters": 10502,
+              "han": 930,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 22,
+              "characters": 9564,
+              "han": 818,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 23,
+              "characters": 4481,
+              "han": 331,
+              "replacement_glyphs": 0
+            }
+          ]
+        },
+        "original.txt": {
+          "bytes": 104451,
+          "sha256": "6e7b04dd7a9a692aeb2a192a304f1b0a17ea0d42a8d353f992adefa1f93b3c4a"
+        },
+        "translation.zh-CN.txt": {
+          "bytes": 88946,
+          "sha256": "59133e9079b3c6535202a7be7121393e086e37860fcc7dd86f11424644ad3f69"
+        }
+      },
+      "linguistic_quality": "not independently assessed",
+      "warnings": [
+        "纯译文版有 2 个可恢复链接未能保留；PDF 正文不受影响，仍可下载。",
+        "对照版有 4 个可恢复链接未能保留；PDF 正文不受影响，仍可下载。",
+        "6 个复杂段落采用保留公式和样式的分段翻译，请对照原文核对语序与衔接。"
+      ]
+    },
+    "glm-packaged": {
+      "model": "glm-5.3-flash",
+      "elapsed_seconds": 203.33,
+      "runtime_stats": {
+        "requests": 99,
+        "successful_requests": 98,
+        "in_flight": 0,
+        "peak_in_flight": 16,
+        "rate_limits": 0,
+        "upstream_errors": 1,
+        "protocol_retries": 36,
+        "capability_retries": 0,
+        "request_seconds": 1101.739,
+        "validated_paragraphs": 162,
+        "single_fallbacks": 8,
+        "protected_fallbacks": 4,
+        "last_response_at": 1792735562.53617,
+        "usage": {
+          "prompt_tokens": 89965,
+          "completion_tokens": 35472,
+          "total_tokens": 125437,
+          "reasoning_tokens": 1071
+        },
+        "status": "finished",
+        "reasoning_status": "已请求关闭思考，但接口仍返回思考用量；服务商未确认实际设置",
+        "reasoning_confirmed": false,
+        "last_request_seconds": 10.646,
+        "reasoning_setting": "none",
+        "effective_concurrency": 16,
+        "request_rate": 2.0,
+        "retry_after_seconds": 0,
+        "updated_at": 1792735570.284632
+      },
+      "artifacts": {
+        "translation.zh-CN.pdf": {
+          "bytes": 1772291,
+          "sha256": "a630256a72da09d7167c1a8059096ce74065eec5279482ebf6f63b7ddacd8cf3",
+          "pages": [
+            {
+              "page": 1,
+              "characters": 1234,
+              "han": 625,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 2,
+              "characters": 1173,
+              "han": 776,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 3,
+              "characters": 1647,
+              "han": 1147,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 4,
+              "characters": 1784,
+              "han": 1312,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 5,
+              "characters": 2207,
+              "han": 1277,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 6,
+              "characters": 1689,
+              "han": 1260,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 7,
+              "characters": 850,
+              "han": 405,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 8,
+              "characters": 926,
+              "han": 582,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 9,
+              "characters": 1004,
+              "han": 772,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 10,
+              "characters": 1139,
+              "han": 818,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 11,
+              "characters": 1793,
+              "han": 1422,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 12,
+              "characters": 1246,
+              "han": 924,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 13,
+              "characters": 1404,
+              "han": 1039,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 14,
+              "characters": 557,
+              "han": 393,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 15,
+              "characters": 1861,
+              "han": 1372,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 16,
+              "characters": 1795,
+              "han": 1267,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 17,
+              "characters": 1153,
+              "han": 745,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 18,
+              "characters": 1881,
+              "han": 1290,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 19,
+              "characters": 1534,
+              "han": 1227,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 20,
+              "characters": 3519,
+              "han": 822,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 21,
+              "characters": 6435,
+              "han": 148,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 22,
+              "characters": 5865,
+              "han": 117,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 23,
+              "characters": 2714,
+              "han": 22,
+              "replacement_glyphs": 0
+            }
+          ]
+        },
+        "translation.zh-CN.dual.pdf": {
+          "bytes": 2940319,
+          "sha256": "9b6961d6fe8d8a1eb30e917d3c8c4d074fff2a46fb96baa0a3b68152d4070513",
+          "pages": [
+            {
+              "page": 1,
+              "characters": 4249,
+              "han": 625,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 2,
+              "characters": 4723,
+              "han": 776,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 3,
+              "characters": 6395,
+              "han": 1147,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 4,
+              "characters": 7281,
+              "han": 1312,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 5,
+              "characters": 7946,
+              "han": 1277,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 6,
+              "characters": 7166,
+              "han": 1260,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 7,
+              "characters": 2882,
+              "han": 405,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 8,
+              "characters": 3715,
+              "han": 582,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 9,
+              "characters": 4189,
+              "han": 772,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 10,
+              "characters": 4682,
+              "han": 818,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 11,
+              "characters": 7630,
+              "han": 1422,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 12,
+              "characters": 5066,
+              "han": 924,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 13,
+              "characters": 5956,
+              "han": 1039,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 14,
+              "characters": 2288,
+              "han": 393,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 15,
+              "characters": 7735,
+              "han": 1372,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 16,
+              "characters": 7264,
+              "han": 1267,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 17,
+              "characters": 4435,
+              "han": 745,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 18,
+              "characters": 7567,
+              "han": 1290,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 19,
+              "characters": 6515,
+              "han": 1227,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 20,
+              "characters": 9545,
+              "han": 822,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 21,
+              "characters": 13164,
+              "han": 148,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 22,
+              "characters": 11962,
+              "han": 117,
+              "replacement_glyphs": 0
+            },
+            {
+              "page": 23,
+              "characters": 5480,
+              "han": 22,
+              "replacement_glyphs": 0
+            }
+          ]
+        },
+        "original.txt": {
+          "bytes": 104451,
+          "sha256": "6e7b04dd7a9a692aeb2a192a304f1b0a17ea0d42a8d353f992adefa1f93b3c4a"
+        },
+        "translation.zh-CN.txt": {
+          "bytes": 91053,
+          "sha256": "e0831ae2c7e6d4297855b6f9c67cd864e41918bcf56c6505f93c266da214700f"
+        }
+      },
+      "linguistic_quality": "not independently assessed",
+      "warnings": [
+        "纯译文版有 2 个可恢复链接未能保留；PDF 正文不受影响，仍可下载。",
+        "对照版有 4 个可恢复链接未能保留；PDF 正文不受影响，仍可下载。",
+        "4 个复杂段落采用保留公式和样式的分段翻译，请对照原文核对语序与衔接。"
+      ]
+    }
+  },
+  "fault_injection": {
+    "cases": [
+      {
+        "case": "split",
+        "status": "completed",
+        "runtime": {
+          "requests": 19,
+          "successful_requests": 19,
+          "in_flight": 0,
+          "peak_in_flight": 1,
+          "rate_limits": 0,
+          "upstream_errors": 0,
+          "protocol_retries": 9,
+          "capability_retries": 0,
+          "request_seconds": 0.358,
+          "validated_paragraphs": 10,
+          "single_fallbacks": 0,
+          "protected_fallbacks": 0,
+          "last_response_at": 1792735686.760679,
+          "usage": {
+            "prompt_tokens": 190,
+            "completion_tokens": 190,
+            "total_tokens": 380
+          },
+          "status": "finished",
+          "reasoning_status": "服务商默认",
+          "reasoning_confirmed": false,
+          "last_request_seconds": 0.006,
+          "reasoning_setting": "provider_default",
+          "effective_concurrency": 2,
+          "request_rate": 64.0,
+          "retry_after_seconds": 0,
+          "updated_at": 1792735691.66558
+        },
+        "elapsed_seconds": 16.27,
+        "error": ""
+      },
+      {
+        "case": "partial",
+        "status": "completed",
+        "runtime": {
+          "requests": 10,
+          "successful_requests": 10,
+          "in_flight": 0,
+          "peak_in_flight": 1,
+          "rate_limits": 0,
+          "upstream_errors": 0,
+          "protocol_retries": 9,
+          "capability_retries": 0,
+          "request_seconds": 0.268,
+          "validated_paragraphs": 10,
+          "single_fallbacks": 0,
+          "protected_fallbacks": 0,
+          "last_response_at": 1792735702.762183,
+          "usage": {
+            "prompt_tokens": 100,
+            "completion_tokens": 100,
+            "total_tokens": 200
+          },
+          "status": "finished",
+          "reasoning_status": "服务商默认",
+          "reasoning_confirmed": false,
+          "last_request_seconds": 0.003,
+          "reasoning_setting": "provider_default",
+          "effective_concurrency": 2,
+          "request_rate": 64.0,
+          "retry_after_seconds": 0,
+          "updated_at": 1792735707.294515
+        },
+        "elapsed_seconds": 15.16,
+        "error": ""
+      },
+      {
+        "case": "plain",
+        "status": "completed",
+        "runtime": {
+          "requests": 39,
+          "successful_requests": 39,
+          "in_flight": 0,
+          "peak_in_flight": 1,
+          "rate_limits": 0,
+          "upstream_errors": 0,
+          "protocol_retries": 29,
+          "capability_retries": 0,
+          "request_seconds": 0.574,
+          "validated_paragraphs": 10,
+          "single_fallbacks": 10,
+          "protected_fallbacks": 0,
+          "last_response_at": 1792735719.842745,
+          "usage": {
+            "prompt_tokens": 390,
+            "completion_tokens": 390,
+            "total_tokens": 780
+          },
+          "status": "finished",
+          "reasoning_status": "服务商默认",
+          "reasoning_confirmed": false,
+          "last_request_seconds": 0.006,
+          "reasoning_setting": "provider_default",
+          "effective_concurrency": 2,
+          "request_rate": 64.0,
+          "retry_after_seconds": 0,
+          "updated_at": 1792735724.305137
+        },
+        "elapsed_seconds": 16.44,
+        "error": ""
+      },
+      {
+        "case": "markers",
+        "status": "completed",
+        "runtime": {
+          "requests": 79,
+          "successful_requests": 79,
+          "in_flight": 0,
+          "peak_in_flight": 2,
+          "rate_limits": 0,
+          "upstream_errors": 0,
+          "protocol_retries": 62,
+          "capability_retries": 0,
+          "request_seconds": 1.229,
+          "validated_paragraphs": 24,
+          "single_fallbacks": 16,
+          "protected_fallbacks": 16,
+          "last_response_at": 1792735738.600607,
+          "usage": {
+            "prompt_tokens": 790,
+            "completion_tokens": 790,
+            "total_tokens": 1580
+          },
+          "status": "finished",
+          "reasoning_status": "服务商默认",
+          "reasoning_confirmed": false,
+          "last_request_seconds": 0.019,
+          "reasoning_setting": "provider_default",
+          "effective_concurrency": 2,
+          "request_rate": 64.0,
+          "retry_after_seconds": 0,
+          "updated_at": 1792735743.605943
+        },
+        "elapsed_seconds": 18.94,
+        "error": ""
+      },
+      {
+        "case": "length",
+        "status": "completed",
+        "runtime": {
+          "requests": 19,
+          "successful_requests": 19,
+          "in_flight": 0,
+          "peak_in_flight": 1,
+          "rate_limits": 0,
+          "upstream_errors": 0,
+          "protocol_retries": 9,
+          "capability_retries": 0,
+          "request_seconds": 0.338,
+          "validated_paragraphs": 10,
+          "single_fallbacks": 0,
+          "protected_fallbacks": 0,
+          "last_response_at": 1792735754.572222,
+          "usage": {
+            "prompt_tokens": 190,
+            "completion_tokens": 190,
+            "total_tokens": 380
+          },
+          "status": "finished",
+          "reasoning_status": "服务商默认",
+          "reasoning_confirmed": false,
+          "last_request_seconds": 0.008,
+          "reasoning_setting": "provider_default",
+          "effective_concurrency": 2,
+          "request_rate": 64.0,
+          "retry_after_seconds": 0,
+          "updated_at": 1792735758.961917
+        },
+        "elapsed_seconds": 14.85,
+        "error": ""
+      },
+      {
+        "case": "empty",
+        "status": "completed",
+        "runtime": {
+          "requests": 7,
+          "successful_requests": 7,
+          "in_flight": 0,
+          "peak_in_flight": 1,
+          "rate_limits": 0,
+          "upstream_errors": 0,
+          "protocol_retries": 3,
+          "capability_retries": 0,
+          "request_seconds": 0.293,
+          "validated_paragraphs": 10,
+          "single_fallbacks": 0,
+          "protected_fallbacks": 0,
+          "last_response_at": 1792735770.213013,
+          "usage": {
+            "prompt_tokens": 70,
+            "completion_tokens": 70,
+            "total_tokens": 140
+          },
+          "status": "finished",
+          "reasoning_status": "服务商默认",
+          "reasoning_confirmed": false,
+          "last_request_seconds": 0.004,
+          "reasoning_setting": "provider_default",
+          "effective_concurrency": 2,
+          "request_rate": 64.0,
+          "retry_after_seconds": 0,
+          "updated_at": 1792735774.611376
+        },
+        "elapsed_seconds": 15.31,
+        "error": ""
+      },
+      {
+        "case": "flaky",
+        "status": "completed",
+        "runtime": {
+          "requests": 3,
+          "successful_requests": 1,
+          "in_flight": 0,
+          "peak_in_flight": 1,
+          "rate_limits": 1,
+          "upstream_errors": 1,
+          "protocol_retries": 0,
+          "capability_retries": 0,
+          "request_seconds": 0.31,
+          "validated_paragraphs": 10,
+          "single_fallbacks": 0,
+          "protected_fallbacks": 0,
+          "last_response_at": 1792735790.426116,
+          "usage": {
+            "prompt_tokens": 10,
+            "completion_tokens": 10,
+            "total_tokens": 20
+          },
+          "status": "finished",
+          "reasoning_status": "服务商默认",
+          "reasoning_confirmed": false,
+          "last_request_seconds": 0.014,
+          "reasoning_setting": "provider_default",
+          "effective_concurrency": 1,
+          "request_rate": 32.0,
+          "retry_after_seconds": 0,
+          "updated_at": 1792735795.0149639
+        },
+        "elapsed_seconds": 20.01,
+        "error": ""
+      },
+      {
+        "case": "invalid",
+        "status": "failed",
+        "runtime": {
+          "requests": 8,
+          "successful_requests": 8,
+          "in_flight": 0,
+          "peak_in_flight": 1,
+          "rate_limits": 0,
+          "upstream_errors": 0,
+          "protocol_retries": 8,
+          "capability_retries": 0,
+          "request_seconds": 0.455,
+          "validated_paragraphs": 0,
+          "single_fallbacks": 4,
+          "protected_fallbacks": 0,
+          "last_response_at": 1792735812.271337,
+          "usage": {
+            "prompt_tokens": 80,
+            "completion_tokens": 80,
+            "total_tokens": 160
+          },
+          "status": "failed",
+          "reasoning_status": "服务商默认",
+          "reasoning_confirmed": false,
+          "last_request_seconds": 0.004,
+          "reasoning_setting": "provider_default",
+          "effective_concurrency": 2,
+          "request_rate": 64.0,
+          "retry_after_seconds": 0,
+          "updated_at": 1792735812.433277
+        },
+        "elapsed_seconds": 17.56,
+        "error": "此批翻译连续 5 次请求未能完成（单段译文仍包含数据包装），请稍后重试或调整接口。"
+      }
+    ],
+    "scope": "local protocol and delivery validation"
+  },
+  "packaged_integration": {
+    "checks": "frozen-multiprocessing-sse-mono-dual-navigation",
+    "events": 51,
+    "provider_requests": 1,
+    "outputs": {
+      "download": {
+        "bytes": 16467,
+        "pages": 1,
+        "links": 1
+      },
+      "download-dual": {
+        "bytes": 17988,
+        "pages": 1,
+        "links": 2
+      },
+      "source.txt": {
+        "bytes": 1146,
+        "utf8": true
+      },
+      "translated.txt": {
+        "bytes": 542,
+        "utf8": true
+      }
+    },
+    "verified_document_reuse_without_api_calls": true,
+    "txt_exports": true,
+    "provider": "local deterministic mock",
+    "legacy_cache_read_denied": true,
+    "external_network_denied": true,
+    "restart_restores_history_and_downloads": true,
+    "job_files_do_not_contain_api_key": true
+  },
+  "visual_qa": {
+    "all_23_pages_contact_sheets": true,
+    "selected_formula_and_text_pages": true,
+    "first_bilingual_page_poppler": true,
+    "rendered_models": [
+      "deepseek-v4.1-flash",
+      "glm-5.3-flash"
+    ],
+    "no_unexpanded_formula_or_style_markers": true,
+    "txt_control_characters": 0
+  },
+  "boundaries": [
+    "No guarantee for every external provider or arbitrary PDF",
+    "Protected-marker fallback preserves formulas but may affect sentence flow; review flagged paragraphs",
+    "No independent sentence-by-sentence translation accuracy review",
+    "GLM sample has 2 mono / 4 dual recoverable-link warnings; see job warnings"
+  ]
+}

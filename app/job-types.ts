@@ -2,6 +2,7 @@ export type Artifact = { kind: string; filename: string; route: string };
 export type RuntimeStats = {
   status?: string; requests?: number; successful_requests?: number; in_flight?: number;
   effective_concurrency?: number; peak_in_flight?: number; rate_limits?: number; upstream_errors?: number;
+  validated_paragraphs?: number; single_fallbacks?: number; protected_fallbacks?: number;
   protocol_retries?: number; request_seconds?: number; retry_after_seconds?: number;
   last_response_at?: number | null; reasoning_status?: string;
   usage?: Record<string, number>;

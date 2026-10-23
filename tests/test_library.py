@@ -113,7 +113,7 @@ class LibraryTests(unittest.IsolatedAsyncioTestCase):
         yield {"type": "finish", "translate_result": SimpleNamespace(mono_pdf_path=path, dual_pdf_path=None)}
 
     async def test_verified_reuse_bypasses_engine_and_retains_text_artifacts(self):
-        config = {"api_base_url": "https://one.test/v1", "api_key": "do-not-save-this-secret", "model": "model-a", "qps": "8"}
+        config = {"api_base_url": "https://one.test/v1", "api_key": "do-not-save-this-secret", "model": "model-a", "qps": "8", "generate_dual": "false"}
         with patch.object(worker, "do_translate_async_stream", side_effect=self.fake_engine) as engine:
             first = await self.submit(config)
             self.assertEqual(first.status, "completed", first.events[-1])
@@ -142,6 +142,15 @@ class LibraryTests(unittest.IsolatedAsyncioTestCase):
         for record in self.root.glob("*/record.json"):
             self.assertNotIn("do-not-save-this-secret", record.read_text())
         self.assertEqual((await self.client.get("/api/history?q=model-b")).json()["total"], 1)
+
+    async def test_default_bilingual_output_is_required_before_delivery(self):
+        with patch.object(worker, "do_translate_async_stream", side_effect=self.fake_engine):
+            job = await self.submit({"api_base_url":"https://one.test/v1", "api_key":"fixture-key", "model":"model-a"})
+        self.assertTrue(job.dual_requested)
+        self.assertEqual(job.status, "failed")
+        self.assertIn("中英对照 PDF", job.error_message)
+        self.assertEqual(worker.job_artifacts(job), [])
+        self.assertEqual((await self.client.get(f"/api/jobs/{job.job_id}/download")).status_code, 404)
 
     async def test_interrupted_restart_and_manifest_cannot_escape_job(self):
         directory = self.root / ("a" * 32)

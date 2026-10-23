@@ -18,19 +18,44 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 
-PROTOCOL_VERSION = "paperstudio-0.4-json-v1"
+PROTOCOL_VERSION = "paperstudio-0.4-json-v2"
+
+
+class RequestBudgetExceeded(RuntimeError):
+    pass
 
 
 @dataclass
 class RequestBudget:
     deadline: float = field(default_factory=lambda: time.monotonic() + 180)
     attempts: int = 0
+    last_issue: str = ""
+    waiting_at: float | None = field(default=None, init=False)
+    wait_depth: int = field(default=0, init=False)
 
     def remaining(self):
-        value = self.deadline - time.monotonic()
-        if value <= 0 or self.attempts >= 5:
-            raise RuntimeError("此批翻译已达到 5 次请求或 180 秒上限，请稍后重试或调整接口。")
+        value = self.deadline - (self.waiting_at if self.waiting_at is not None else time.monotonic())
+        if value <= 0:
+            raise RequestBudgetExceeded("此批翻译的接口处理已达到 180 秒上限，请稍后重试或调整接口。")
+        if self.attempts >= 5:
+            detail = f"（{self.last_issue}）" if self.last_issue else ""
+            raise RequestBudgetExceeded(f"此批翻译连续 5 次请求未能完成{detail}，请稍后重试或调整接口。")
         return value
+
+    @contextlib.contextmanager
+    def waiting(self):
+        """Scheduling and capability-lock queues do not consume response time."""
+        self.remaining()
+        if self.wait_depth == 0:
+            self.waiting_at = time.monotonic()
+        self.wait_depth += 1
+        try:
+            yield
+        finally:
+            self.wait_depth -= 1
+            if self.wait_depth == 0:
+                self.deadline += time.monotonic() - self.waiting_at
+                self.waiting_at = None
 
 
 def normalize_options(values=None, *, legacy_qps=8):
@@ -111,6 +136,7 @@ class RequestRuntime:
         self.stats = {"requests": 0, "successful_requests": 0, "in_flight": 0,
                       "peak_in_flight": 0, "rate_limits": 0, "upstream_errors": 0,
                       "protocol_retries": 0, "capability_retries": 0, "request_seconds": 0.0,
+                      "validated_paragraphs": 0, "single_fallbacks": 0, "protected_fallbacks": 0,
                       "last_response_at": None, "usage": {}, "status": "preparing",
                       "reasoning_status": "等待首批请求协商", "reasoning_confirmed": False}
         self.cache_identity = hashlib.sha256(json.dumps([PROTOCOL_VERSION, capability_candidates(model, self.metadata),
@@ -134,9 +160,9 @@ class RequestRuntime:
             raise RuntimeError(self.fatal)
 
     @contextlib.contextmanager
-    def budget(self):
+    def budget(self, *, fresh=False):
         previous = getattr(self.local, "budget", None)
-        self.local.budget = previous or RequestBudget()
+        self.local.budget = RequestBudget() if fresh or previous is None else previous
         try:
             yield self.local.budget
         finally:
@@ -175,7 +201,7 @@ class RequestRuntime:
 
     @contextlib.contextmanager
     def slot(self, budget):
-        with self.condition:
+        with self.condition, budget.waiting():
             while True:
                 self.check()
                 budget.remaining()
@@ -245,9 +271,10 @@ class RequestRuntime:
     def request(self, client, messages, *, extra=None):
         # One negotiation leader; other workers wait without occupying HTTP slots.
         with self.budget() as budget:
-            while not self.negotiation.acquire(timeout=0.15):
-                self.check()
-                budget.remaining()
+            with budget.waiting():
+                while not self.negotiation.acquire(timeout=0.15):
+                    self.check()
+                    budget.remaining()
             negotiating = self.selected is None
             if not negotiating:
                 self.negotiation.release()
@@ -269,6 +296,8 @@ class RequestRuntime:
                             self.selected = params
                             self._save_capability(params)
                         return response
+                    except RequestBudgetExceeded:
+                        raise
                     except Exception as exc:
                         if started is not None:
                             duration = time.monotonic() - started
@@ -278,6 +307,9 @@ class RequestRuntime:
                                 if getattr(exc, "status_code", None):
                                     self.stats["last_response_at"] = time.time()
                         if parameter_rejection(exc, params):
+                            # Rejected capability probes have a finite candidate
+                            # list and do not spend the content-repair attempts.
+                            budget.attempts -= 1
                             with self.condition:
                                 self.stats["capability_retries"] += 1
                             if not negotiating:
@@ -291,6 +323,7 @@ class RequestRuntime:
                         status = getattr(exc, "status_code", None)
                         timeout = exc.__class__.__name__ in {"APITimeoutError", "ReadTimeout", "ConnectTimeout", "APIConnectionError"}
                         if status == 429 or status in {500, 502, 503, 504} or timeout:
+                            budget.last_issue = ("接口响应超时或连接中断" if timeout else f"接口返回 HTTP {status}")
                             with self.condition:
                                 self.success_streak = 0
                                 field = "rate_limits" if status == 429 else "upstream_errors"
